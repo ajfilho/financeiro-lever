@@ -4186,6 +4186,47 @@
         return;
       }
 
+      // ── Hoje column: live + today snapshot data ──────────────────
+      const todaySnap = realSnapsByDate[todayISO] || null;
+      const NOME_W = 200; // px — largura fixa da coluna "Conta" (sticky left:0)
+      const HOJE_W = 116; // px — largura fixa da coluna "Hoje"  (sticky left:NOME_W)
+
+      function getLiveValue(acc) {
+        if (/lootrush/i.test(acc.name))    return caixaState._lootrushLastFetch?.total ?? null;
+        if (/wise.*cnpj/i.test(acc.name))  return caixaState._wiseLastFetch?.cnpj?.total ?? null;
+        if (/wise.*llp/i.test(acc.name))   return caixaState._sourcesLastFetch?.wiseLlp?.total ?? null;
+        if (/buygoods/i.test(acc.name))    return caixaState._sourcesLastFetch?.buygoodsPending?.pending ?? null;
+        return null;
+      }
+      function getHojeValue(acc) {
+        const live = getLiveValue(acc);
+        if (live != null) return { value: live, isLive: true };
+        const snap = todaySnap?.balances[acc.id] ?? null;
+        return { value: snap, isLive: false };
+      }
+
+      // Virtual "hoje" snap for total computation
+      const hojeVSnap = {
+        ptaxUsd: todaySnap?.ptaxUsd || allSnapsAsc.slice(-1)[0]?.ptaxUsd || 0,
+        ptaxEur: todaySnap?.ptaxEur || allSnapsAsc.slice(-1)[0]?.ptaxEur || 0,
+        balances: {},
+      };
+      accs.forEach(acc => {
+        const { value } = getHojeValue(acc);
+        if (value != null) hojeVSnap.balances[acc.id] = value;
+      });
+      const hojeTotal = Object.keys(hojeVSnap.balances).length ? caixaSnapshotTotal(hojeVSnap) : null;
+      const prevHojeTotal = allSnapsAsc.length ? caixaSnapshotTotal(allSnapsAsc.slice(-1)[0]) : null;
+
+      // Sticky style helpers (inline because Tailwind can't generate arbitrary left values)
+      const sNome = `position:sticky;left:0;z-index:10`;
+      const sHoje = `position:sticky;left:${NOME_W}px;z-index:10`;
+      const sNomeTh = `position:sticky;left:0;z-index:30`;
+      const sHojeTh = `position:sticky;left:${NOME_W}px;z-index:30`;
+
+      // Live dot for "Hoje" header
+      const lDot = `<span class="relative flex h-1.5 w-1.5 mr-1"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span></span>`;
+
       // ── Table header (oldest → newest, left → right) ─────────────
       const colCount = displaySnapsAsc.length;
       const headerCells = displaySnapsAsc.map(s => {
@@ -4209,8 +4250,26 @@
           ? `<span class="inline-block ml-1" title="Atualizado automaticamente via API"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span></span>`
           : "";
         // Alternating rows
-        const rowBg   = rowIndex % 2 === 0 ? "bg-slate-900"    : "bg-slate-800/20";
-        const stkyBg  = rowIndex % 2 === 0 ? "bg-slate-900"    : "bg-[#1b2030]";
+        const rowBg  = rowIndex % 2 === 0 ? "bg-slate-900"   : "bg-slate-800/20";
+        const stkyBg = rowIndex % 2 === 0 ? "bg-slate-900"   : "bg-[#1b2030]";
+
+        // "Hoje" cell
+        const { value: hv, isLive: hLive } = getHojeValue(acc);
+        let hText, hBg;
+        if (hLive) {
+          hText = "text-emerald-300 font-semibold"; hBg = "bg-emerald-950/40";
+        } else if (hv != null) {
+          hText = "text-slate-300"; hBg = "bg-slate-800/40";
+        } else {
+          hText = "text-slate-600/50"; hBg = "";
+        }
+        const hojeCell = `<td style="${sHoje}" class="px-2 py-0.5 border-l border-emerald-800/30 ${hBg} ${stkyBg}">
+          <div class="flex items-center justify-end gap-0.5">
+            ${hLive ? `<span class="relative flex h-1.5 w-1.5 mr-0.5 shrink-0"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span><span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span></span>` : ""}
+            <span class="text-slate-500/60 text-xs shrink-0 font-mono">${sym}</span>
+            <span class="${hText} text-xs text-right w-full">${hv != null ? caixaFormatNumber(hv) : "—"}</span>
+          </div>
+        </td>`;
 
         const cells = displaySnapsAsc.map(s => {
           const v = s.balances[acc.id];
@@ -4248,9 +4307,10 @@
         }).join("");
 
         return `<tr class="${rowBg} border-t border-slate-800/50 hover:brightness-110 transition-all">
-          <td class="px-3 py-1.5 text-left not-num sticky left-0 z-10 ${stkyBg} border-r border-slate-800/60">
+          <td style="${sNome}" class="px-3 py-1.5 text-left not-num ${stkyBg} border-r border-slate-800/60" style="width:${NOME_W}px">
             <span class="inline-flex items-center text-slate-200 text-sm">${escapeHtml(acc.name)}${liveDot}</span>
           </td>
+          ${hojeCell}
           ${cells}
         </tr>`;
       }
@@ -4275,27 +4335,32 @@
         const list = groupedAccs[g.key];
         if (!list || !list.length) return;
         const collapsed = caixaState.collapsedGroups.has(g.key);
-        // NÃO usar colspan — td com colspan ignora sticky. Primeira célula sticky + células vazias.
         const emptyCols = displaySnapsAsc.map(() => `<td class="bg-slate-950/80"></td>`).join("");
         allRowsHtml += `
           <tr class="bg-slate-950/80 border-t-2 border-slate-700/80 cursor-pointer select-none hover:bg-slate-900/80 transition-colors"
               onclick="caixaToggleGroup('${g.key}')">
-            <td class="px-4 py-2 sticky left-0 z-10 bg-slate-950/90 border-r border-slate-800/60">
+            <td style="${sNome}" class="px-4 py-2 bg-slate-950/90 border-r border-slate-800/60">
               <div class="flex items-center gap-2">
                 <span class="transition-transform inline-block ${collapsed ? "" : "rotate-90"}">${chevSvg}</span>
                 <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider">${escapeHtml(g.label)}</span>
                 <span class="text-xs text-slate-500 font-normal normal-case">${list.length} conta${list.length === 1 ? "" : "s"}</span>
               </div>
             </td>
+            <td style="${sHoje}" class="bg-slate-950/90 border-l border-emerald-800/20"></td>
             ${emptyCols}
           </tr>`;
         if (!collapsed) list.forEach(acc => { allRowsHtml += renderAccRow(acc, rowIdx++); });
       });
 
       // ── PTAX rows ────────────────────────────────────────────────
+      const ptaxUsdHoje = todaySnap?.ptaxUsd || allSnapsAsc.slice(-1)[0]?.ptaxUsd || null;
+      const ptaxEurHoje = todaySnap?.ptaxEur || allSnapsAsc.slice(-1)[0]?.ptaxEur || null;
       const ptaxRowsHtml = `
         <tr class="border-t-2 border-slate-700/80 bg-slate-950/70">
-          <td class="px-4 py-1.5 text-left text-xs text-slate-500 italic sticky left-0 bg-slate-950 z-10 border-r border-slate-800/60">PTAX USD → BRL</td>
+          <td style="${sNome}" class="px-4 py-1.5 text-left text-xs text-slate-500 italic bg-slate-950 border-r border-slate-800/60">PTAX USD → BRL</td>
+          <td style="${sHoje}" class="px-2 py-1.5 text-right text-xs border-l border-emerald-800/20 bg-slate-950 ${ptaxUsdHoje ? "text-slate-400" : "text-slate-600/40"}">
+            ${ptaxUsdHoje ? caixaFormatNumber(ptaxUsdHoje) : "—"}
+          </td>
           ${displaySnapsAsc.map(s => {
             const v = s.ptaxUsd;
             return `<td class="px-1 py-0.5 border-l border-slate-800/40 ${v != null ? "bg-slate-800/25" : ""}">
@@ -4313,7 +4378,10 @@
           }).join("")}
         </tr>
         <tr class="bg-slate-950/70">
-          <td class="px-4 py-1.5 text-left text-xs text-slate-500 italic sticky left-0 bg-slate-950 z-10 border-r border-slate-800/60">PTAX EUR → BRL</td>
+          <td style="${sNome}" class="px-4 py-1.5 text-left text-xs text-slate-500 italic bg-slate-950 border-r border-slate-800/60">PTAX EUR → BRL</td>
+          <td style="${sHoje}" class="px-2 py-1.5 text-right text-xs border-l border-emerald-800/20 bg-slate-950 ${ptaxEurHoje ? "text-slate-400" : "text-slate-600/40"}">
+            ${ptaxEurHoje ? caixaFormatNumber(ptaxEurHoje) : "—"}
+          </td>
           ${displaySnapsAsc.map(s => {
             const v = s.ptaxEur;
             return `<td class="px-1 py-0.5 border-l border-slate-800/40 ${v != null ? "bg-slate-800/25" : ""}">
@@ -4333,9 +4401,16 @@
       `;
 
       // ── Total & Diff footer rows ─────────────────────────────────
+      const hojeTotalCls = hojeTotal && prevHojeTotal
+        ? (hojeTotal > prevHojeTotal ? "text-emerald-400" : hojeTotal < prevHojeTotal ? "text-rose-400" : "text-emerald-300")
+        : "text-emerald-300";
+
       const totalRowHtml = `
         <tr class="bg-emerald-950/30 font-semibold">
-          <td class="px-4 py-2.5 text-left sticky left-0 bg-emerald-950/50 z-10 text-emerald-300 text-sm border-r border-slate-800/60">Caixa Total (BRL)</td>
+          <td style="${sNome}" class="px-4 py-2.5 text-left bg-emerald-950/50 text-emerald-300 text-sm border-r border-slate-800/60">Caixa Total (BRL)</td>
+          <td style="${sHoje}" class="px-2 py-2.5 text-right ${hojeTotalCls} text-sm border-l border-emerald-800/30 bg-emerald-950/40">
+            ${hojeTotal ? fmtBRL(hojeTotal) : "—"}
+          </td>
           ${displaySnapsAsc.map((s, i) => {
             const t = displayTotals[i];
             const prevT = i > 0 ? displayTotals[i - 1] : (allSnapsAsc.length ? caixaSnapshotTotal(allSnapsAsc.filter(x => x.date < s.date).slice(-1)[0] || {balances:{}}) : null);
@@ -4347,7 +4422,8 @@
 
       const diffRowHtml = `
         <tr class="bg-slate-950/50">
-          <td class="px-4 py-2 text-left text-xs text-slate-500 sticky left-0 bg-slate-950 z-10 border-r border-slate-800/60">Variação</td>
+          <td style="${sNome}" class="px-4 py-2 text-left text-xs text-slate-500 bg-slate-950 border-r border-slate-800/60">Variação</td>
+          <td style="${sHoje}" class="px-2 py-2 text-right text-xs border-l border-emerald-800/20 bg-slate-950 text-slate-600/50">live</td>
           ${displaySnapsAsc.map((s, i) => {
             if (i === 0) return `<td class="px-3 py-2 text-right text-slate-600 text-xs border-l border-slate-800/50" data-caixa-diff="${s.date}">—</td>`;
             const cur = displayTotals[i], prv = displayTotals[i - 1];
@@ -4365,7 +4441,10 @@
             <table class="w-full text-sm num border-collapse">
               <thead class="bg-slate-950 text-xs uppercase tracking-wider text-slate-400 sticky top-0 z-20">
                 <tr>
-                  <th class="px-4 py-3 text-left not-num sticky left-0 bg-slate-950 z-30 border-r border-slate-800" style="min-width:220px">Conta</th>
+                  <th style="${sNomeTh}" class="px-4 py-3 text-left not-num bg-slate-950 border-r border-slate-800" style="width:${NOME_W}px">Conta</th>
+                  <th style="${sHojeTh}" class="px-2 py-3 text-right bg-slate-950/95 border-l border-emerald-800/40" style="min-width:${HOJE_W}px">
+                    <div class="flex items-center justify-end gap-1">${lDot}<span class="text-emerald-400/90">Hoje</span></div>
+                  </th>
                   ${headerCells}
                 </tr>
               </thead>

@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "dashboard",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["http-server", "-p", "8765", "--cors", "-c-1"],
+      "name": "Balanço Anual Dashboard",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-c", "import posix; posix.chdir('/tmp'); import sys; sys.path_importer_cache.clear(); exec(open('/tmp/llp_dashboard.py').read())"],
       "port": 8765
     }
   ]

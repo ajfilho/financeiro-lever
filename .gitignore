@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+
+# Data (não versionar extratos financeiros)
+Extratos/
+dashboard/imports.json
+dashboard/data.js
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

@@ -1,0 +1,2113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Balanço Anual 2025</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="data.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif; }
+    .num { font-variant-numeric: tabular-nums; }
+    .scroll-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scroll-thin::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    .scroll-thin::-webkit-scrollbar-track { background: transparent; }
+    @media print {
+      header, #tx-search, .no-print { display: none !important; }
+      body { background: #fff !important; color: #111 !important; }
+      main { padding: 0 !important; }
+      section { page-break-inside: avoid; border: 1px solid #e5e7eb !important; background: #fff !important; }
+      .bg-slate-900,.bg-slate-950,.bg-slate-800\/30,.bg-slate-800\/40 { background: #fff !important; }
+      .border-slate-800,.border-slate-700 { border-color: #e5e7eb !important; }
+      .text-slate-100,.text-slate-200,.text-slate-300 { color: #111 !important; }
+      .text-slate-400,.text-slate-500,.text-slate-600 { color: #6b7280 !important; }
+      .text-emerald-400,.text-emerald-300,.text-emerald-200 { color: #059669 !important; }
+      .text-rose-400,.text-rose-300 { color: #dc2626 !important; }
+      .text-blue-300 { color: #1d4ed8 !important; }
+      #tx-table-section, #imports-section { display: none !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-20">
+    <div class="max-w-7xl mx-auto px-6">
+      <!-- Row 1: title + actions -->
+      <div class="flex items-center justify-between py-3">
+        <div>
+          <h1 class="text-xl font-semibold tracking-tight">Balanço Anual</h1>
+          <p class="text-xs text-slate-400" id="header-sub">Carregando...</p>
+        </div>
+        <div class="flex items-center gap-4">
+          <label for="csv-input"
+                 class="cursor-pointer inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition select-none">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            Importar Extratos
+          </label>
+          <input id="csv-input" type="file" accept=".csv" multiple class="hidden" />
+          <div class="text-right">
+            <div class="text-xs text-slate-400 uppercase tracking-wider">Saldo Atual</div>
+            <div class="num text-2xl font-semibold text-emerald-400" id="header-balance">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: filters -->
+      <div class="flex flex-wrap gap-2 items-center pb-3 border-t border-slate-800/70 pt-2.5">
+        <button id="btn-this-year" class="text-xs px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-500 bg-slate-800 text-slate-300 hover:text-white transition select-none">Este ano</button>
+        <button id="btn-last-year" class="text-xs px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-500 bg-slate-800 text-slate-300 hover:text-white transition select-none">Ano passado</button>
+
+        <!-- Month range picker -->
+        <div class="relative" id="month-picker-wrap">
+          <button id="month-picker-btn"
+                  class="inline-flex items-center gap-2 bg-slate-800 border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 text-sm transition select-none">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 shrink-0">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span id="month-picker-label" class="text-slate-200">Todos os meses</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-500"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div id="month-picker-panel"
+               class="hidden absolute left-0 top-full mt-2 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-xl shadow-black/60 p-4 w-72">
+            <div class="flex items-center justify-between mb-3">
+              <button id="month-prev-year" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+              </button>
+              <span id="picker-year-label" class="text-sm font-semibold text-slate-200">2025</span>
+              <button id="month-next-year" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+              </button>
+            </div>
+            <div id="month-grid" class="grid grid-cols-4 gap-1.5"></div>
+            <div class="border-t border-slate-800 mt-3 pt-3">
+              <button id="month-clear" class="w-full text-xs text-slate-400 hover:text-white py-1.5 rounded-lg hover:bg-slate-800 transition">Todos os meses</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Account multi-select -->
+        <div class="relative" id="account-picker-wrap">
+          <button id="account-picker-btn"
+                  class="inline-flex items-center gap-2 bg-slate-800 border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 text-sm transition select-none">
+            <span id="account-picker-label" class="text-slate-200">Todas</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-500"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div id="account-picker-panel"
+               class="hidden absolute left-0 top-full mt-2 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-xl shadow-black/60 p-3 w-52 space-y-1">
+            <label class="flex items-center gap-2 text-sm text-slate-300 hover:text-white cursor-pointer px-1 py-0.5 rounded">
+              <input type="checkbox" id="acc-all" class="accent-emerald-500 w-3.5 h-3.5" checked> Todas
+            </label>
+            <div class="border-t border-slate-800 pt-1" id="account-checkboxes"></div>
+          </div>
+        </div>
+
+        <div class="ml-auto text-xs text-slate-500" id="tx-count"></div>
+      </div>
+    </div>
+  </header>
+
+  <div id="app-layout" class="flex">
+
+    <!-- ── Sidebar ────────────────────────────────────────── -->
+    <aside id="sidebar"
+           class="w-52 shrink-0 bg-slate-900 border-r border-slate-800 sticky overflow-y-auto z-10 no-print">
+      <nav class="p-3 pt-5">
+        <p class="px-2 mb-3 text-[10px] uppercase tracking-widest text-slate-600 font-semibold">Navegação</p>
+        <div class="space-y-0.5">
+
+          <button id="nav-home" onclick="switchView('home')"
+            class="nav-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-left transition-colors bg-slate-800 text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+            <span>Home</span>
+          </button>
+
+          <button id="nav-resumo" onclick="switchView('resumo')"
+            class="nav-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-left transition-colors text-slate-400 hover:text-white hover:bg-slate-800/50">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+              <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+            </svg>
+            <span class="leading-tight">Resumo de Entradas e Saídas</span>
+          </button>
+
+        </div>
+      </nav>
+    </aside>
+
+    <!-- ── Content area ───────────────────────────────────── -->
+    <div class="flex-1 min-w-0">
+
+      <!-- View: Home -->
+      <div id="view-home">
+        <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+
+    <!-- KPI Cards -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <div class="text-xs uppercase tracking-wider text-slate-400 mb-1">Receita</div>
+        <div class="num text-2xl font-semibold text-emerald-400" id="kpi-income">$0.00</div>
+        <div class="num text-xs text-emerald-700 mt-0.5 h-4" id="kpi-income-brl"></div>
+        <div class="text-xs text-slate-500 mt-1" id="kpi-income-count"></div>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <div class="text-xs uppercase tracking-wider text-slate-400 mb-1">Despesa Líquida</div>
+        <div class="num text-2xl font-semibold text-rose-400" id="kpi-expense">$0.00</div>
+        <div class="num text-xs text-rose-800 mt-0.5 h-4" id="kpi-expense-brl"></div>
+        <div class="text-xs text-slate-500 mt-1" id="kpi-expense-count"></div>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <div class="text-xs uppercase tracking-wider text-slate-400 mb-1">Resultado</div>
+        <div class="num text-2xl font-semibold" id="kpi-net">$0.00</div>
+        <div class="num text-xs text-slate-500 mt-0.5 h-4" id="kpi-net-brl"></div>
+        <div class="text-xs text-slate-500 mt-1">Receita − Despesa</div>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <div class="text-xs uppercase tracking-wider text-slate-400 mb-1">Maior Categoria</div>
+        <div class="text-lg font-semibold truncate" id="kpi-topcat">—</div>
+        <div class="num text-xs text-slate-500 mt-1" id="kpi-topcat-amount"></div>
+      </div>
+    </section>
+
+    <!-- Charts row -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 lg:col-span-2">
+        <h2 class="text-sm font-semibold text-slate-300 mb-4">Receita vs Despesa por Mês</h2>
+        <div style="height:280px"><canvas id="chart-monthly"></canvas></div>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <h2 class="text-sm font-semibold text-slate-300 mb-4">Despesas por Categoria</h2>
+        <div style="height:280px" id="cat-chart-wrap"><canvas id="chart-categories"></canvas></div>
+      </div>
+    </section>
+
+    <!-- Balance line -->
+    <section class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+      <h2 class="text-sm font-semibold text-slate-300 mb-4">Evolução do Saldo</h2>
+      <div style="height:240px"><canvas id="chart-balance"></canvas></div>
+    </section>
+
+    <!-- DR Mensal -->
+    <section id="dr-section" class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-800">
+        <h2 class="text-sm font-semibold text-slate-300">DR Mensal</h2>
+      </div>
+      <div class="overflow-x-auto scroll-thin">
+        <table class="w-full text-sm num">
+          <thead class="bg-slate-950 text-xs uppercase tracking-wider text-slate-400">
+            <tr>
+              <th class="px-5 py-3 text-left not-num">Mês</th>
+              <th class="px-5 py-3 text-right">Receita</th>
+              <th class="px-5 py-3 text-right">Despesa</th>
+              <th class="px-5 py-3 text-right">Resultado</th>
+              <th class="px-5 py-3 text-right">Margem</th>
+            </tr>
+          </thead>
+          <tbody id="dr-table"></tbody>
+          <tfoot id="dr-footer" class="border-t-2 border-slate-700 bg-slate-950"></tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- Imported extracts list -->
+    <section id="imports-section" class="hidden bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-300">Extratos Importados</h2>
+        <span class="text-xs text-slate-500">Clique no lixo para remover um extrato</span>
+      </div>
+      <div id="imports-list" class="divide-y divide-slate-800"></div>
+    </section>
+
+    <!-- Declaração IR -->
+    <section id="ir-section" class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hidden">
+      <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-300">Declaração de Imposto de Renda</h2>
+          <p class="text-xs text-slate-500 mt-0.5">DRE por exercício · Bens e Direitos · PTAX Banco Central · todos os exercícios disponíveis</p>
+        </div>
+        <div class="flex items-center gap-2 no-print">
+          <button id="btn-export-csv"
+            class="inline-flex items-center gap-1.5 bg-slate-800 border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 text-xs text-slate-300 hover:text-white transition">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar CSV
+          </button>
+          <button id="btn-export-pdf"
+            class="inline-flex items-center gap-1.5 bg-slate-800 border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 text-xs text-slate-300 hover:text-white transition">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Imprimir / PDF
+          </button>
+        </div>
+      </div>
+      <div id="ir-content"></div>
+    </section>
+
+    <!-- Transactions table -->
+    <section id="tx-table-section" class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+      <div class="flex items-center justify-between p-5 border-b border-slate-800">
+        <h2 class="text-sm font-semibold text-slate-300">Transações</h2>
+        <input id="tx-search" type="search" placeholder="Buscar..."
+               class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:border-emerald-500" />
+      </div>
+      <div class="overflow-x-auto scroll-thin max-h-[600px]">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-950 sticky top-0 text-xs uppercase tracking-wider text-slate-400">
+            <tr>
+              <th class="px-4 py-3 text-left">Data</th>
+              <th class="px-4 py-3 text-left">Conta</th>
+              <th class="px-4 py-3 text-left">Descrição</th>
+              <th class="px-4 py-3 text-left">Categoria</th>
+              <th class="px-4 py-3 text-right">Receita</th>
+              <th class="px-4 py-3 text-right">Despesa</th>
+              <th class="px-4 py-3 text-right">Saldo</th>
+            </tr>
+          </thead>
+          <tbody id="tx-table"></tbody>
+        </table>
+      </div>
+    </section>
+
+        </main>
+      </div><!-- /view-home -->
+
+      <!-- View: Resumo de Entradas e Saídas -->
+      <div id="view-resumo" class="hidden">
+        <main class="max-w-7xl mx-auto px-6 py-8 space-y-6">
+
+          <!-- Header da view -->
+          <div class="flex items-center justify-between">
+            <div>
+              <h1 class="text-xl font-semibold tracking-tight">Resumo de Entradas e Saídas</h1>
+              <p class="text-xs text-slate-400 mt-0.5">Transações agrupadas por categoria · respeita os filtros do header</p>
+            </div>
+          </div>
+
+          <div id="resumo-content">
+            <div class="text-center py-16 text-slate-500 text-sm">Carregando...</div>
+          </div>
+
+        </main>
+      </div><!-- /view-resumo -->
+
+    </div><!-- /content-area -->
+  </div><!-- /app-layout -->
+
+  <!-- Modal: confirm import (multi-file) -->
+  <div id="modal-import" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-xl flex flex-col max-h-[90vh]">
+      <div class="flex items-center justify-between p-5 border-b border-slate-800 shrink-0">
+        <h3 class="text-lg font-semibold" id="modal-import-title">Confirmar Importação</h3>
+        <button id="modal-import-close" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+      </div>
+
+      <!-- Apply-to-all shortcut -->
+      <div class="px-5 pt-4 shrink-0">
+        <div class="flex gap-2 items-center">
+          <input type="text" id="import-account-all" list="import-accounts-list"
+                 placeholder="Definir mesma conta para todos..."
+                 class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" />
+          <button id="btn-apply-all" class="bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg px-3 py-2 text-sm transition whitespace-nowrap">Aplicar a todos</button>
+        </div>
+        <datalist id="import-accounts-list"></datalist>
+      </div>
+
+      <!-- File list -->
+      <div id="import-files-list" class="overflow-y-auto scroll-thin flex-1 px-5 py-3 space-y-3"></div>
+
+      <div id="modal-import-warn" class="hidden mx-5 text-amber-400 text-xs bg-amber-500/10 rounded-lg px-3 py-2 shrink-0"></div>
+
+      <div class="flex gap-2 p-5 border-t border-slate-800 shrink-0">
+        <button id="btn-confirm-import" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition">Importar</button>
+        <button id="btn-cancel-import" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg px-4 py-2 text-sm transition">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // Helpers
+    // ============================================================
+    const fmt = n => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0);
+    const monthName = ym => {
+      const [y, m] = ym.split("-");
+      return ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][+m-1] + "/" + y.slice(2);
+    };
+    const dateBR = iso => { const [y,m,d] = iso.split("-"); return `${d}/${m}/${y.slice(2)}`; };
+
+    Chart.defaults.color = "#94a3b8";
+    Chart.defaults.borderColor = "#1e293b";
+    Chart.defaults.font.family = "-apple-system, system-ui, sans-serif";
+    const PALETTE = ["#10b981","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316","#6366f1","#84cc16"];
+
+    // ============================================================
+    // Mode detection: servidor local vs file://
+    // ============================================================
+    const SERVER_MODE = window.location.protocol.startsWith("http");
+
+    if (!SERVER_MODE) {
+      document.body.insertAdjacentHTML("afterbegin", `
+        <div style="background:#7c3aed;color:#fff;text-align:center;padding:10px 16px;font-size:13px;font-family:monospace">
+          ⚠ Abra pelo servidor local para importar extratos:&nbsp;&nbsp;
+          <strong>python3 dashboard/server.py</strong>&nbsp;&nbsp;→&nbsp;&nbsp;http://localhost:8765
+        </div>`);
+    }
+
+    // ============================================================
+    // Storage: servidor local (imports.json em disco)
+    // ============================================================
+    async function apiImport(payload) {
+      const r = await fetch("/import", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) });
+      if (!r.ok) throw new Error(await r.text());
+    }
+    async function apiRemove(key) {
+      const r = await fetch("/remove", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ key }) });
+      if (!r.ok) throw new Error(await r.text());
+    }
+    async function apiGetImports() {
+      if (!SERVER_MODE) return {};
+      const r = await fetch("/imports");
+      return r.ok ? r.json() : {};
+    }
+
+    // ============================================================
+    // State: merge data.js + imported extracts
+    // ============================================================
+    const baseData = window.financialData || { accounts: [], generatedAt: "" };
+    const state = { accounts: [], generatedAt: baseData.generatedAt };
+    let charts = {};
+
+    // No server mode, data.js is already merged by server.py after each import.
+    // rebuildState simply reflects the current window.financialData.
+    function rebuildState() {
+      state.accounts = JSON.parse(JSON.stringify(baseData.accounts));
+      state.generatedAt = baseData.generatedAt;
+    }
+    rebuildState();
+
+    // ============================================================
+    // CSV parser: Payoneer format
+    // ============================================================
+    function parseCSV(text) {
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (!lines.length) return null;
+
+      // Strip BOM
+      const rawHeader = lines[0].replace(/^﻿/, "");
+
+      // Detect separator: semicolon (LootRush Transfer) vs comma (Payoneer / LootRush Card)
+      const sep = rawHeader.includes(";") ? ";" : ",";
+      const headers = parseCSVLine(rawHeader, sep);
+
+      // Detect format by headers
+      let format;
+      if (sep === ";" && headers.includes("Net Change") && headers.includes("Transaction Date"))
+        format = "lootrush-transfer";
+      else if (sep === "," && headers.includes("nickname") && headers.includes("transaction id"))
+        format = "lootrush-card";
+      else if (sep === "," && headers.includes("Credit Amount") && headers.includes("Transaction Date"))
+        format = "payoneer";
+      else if (sep === "," && headers.includes("TransferWise ID"))
+        format = "wise";
+      else
+        return { error: `Formato não reconhecido. Cabeçalho detectado: ${headers.slice(0,4).join(", ")}` };
+
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const vals = parseCSVLine(lines[i], sep);
+        if (vals.length < 2) continue;
+        const row = {};
+        headers.forEach((h, idx) => { row[h] = vals[idx] || ""; });
+        rows.push(row);
+      }
+      return { format, rows };
+    }
+
+    function parseCSVLine(line, sep = ",") {
+      if (sep === ";") return line.split(";").map(v => v.trim());
+      const result = [];
+      let cur = "", inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') { inQ = !inQ; }
+        else if (c === "," && !inQ) { result.push(cur.trim()); cur = ""; }
+        else cur += c;
+      }
+      result.push(cur.trim());
+      return result;
+    }
+
+    // ── Payoneer ─────────────────────────────────────────────────────────────
+    function parsePayoneerRow(row) {
+      const dateRaw = row["Transaction Date"]?.trim();
+      if (!dateRaw) return null;
+      const [m, d, y] = dateRaw.split("/");
+      const iso = `${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
+
+      const credit = parseFloat(row["Credit Amount"] || 0);
+      const debit  = parseFloat(row["Debit Amount"]  || 0);
+      const desc   = row["Description"]?.trim() || "";
+      const source = row["Source"]?.trim() || "";
+      const target = row["Target"]?.trim() || "";
+
+      const isPayment = desc.toLowerCase().startsWith("payment from");
+      const isCard    = desc.toLowerCase().startsWith("card charge");
+
+      let type, category, subcategory, merchant;
+      if (isPayment && credit > 0) {
+        type = "income"; category = "Receita";
+        subcategory = source.replace(/\s*\(.*?\)\s*/g, "").trim().replace(/\b\w/g, c => c.toUpperCase()) || "Outros";
+        merchant = subcategory;
+      } else if (isCard && credit > 0) {
+        type = "refund"; [category, subcategory] = parseCategory(source);
+        merchant = target || extractMerchant(desc);
+      } else if (isCard && debit > 0) {
+        type = "expense"; [category, subcategory] = parseCategory(source);
+        merchant = target || extractMerchant(desc);
+      } else {
+        type = "other"; [category, subcategory] = source ? parseCategory(source) : ["Outros", ""];
+        merchant = target || "";
+      }
+
+      return {
+        date: iso, time: row["Transaction Time"]?.trim() || "00:00:00",
+        id: row["Transaction ID"]?.trim() || ("pay_" + Math.random().toString(36).slice(2)),
+        description: desc, credit, debit,
+        currency: row["Currency"]?.trim() || "USD",
+        status: row["Status"]?.trim() || "Completed",
+        runningBalance: parseFloat(row["Running Balance"] || 0),
+        additional: row["Additional Description"]?.trim() || "",
+        category, subcategory, merchant, type,
+      };
+    }
+
+    // ── LootRush — Transferências ─────────────────────────────────────────────
+    function parseLootRushTransferRow(row) {
+      const dateRaw = row["Transaction Date"]?.trim();
+      if (!dateRaw) return null;
+      const iso  = dateRaw.slice(0, 10); // "2025-07-30 16:35:11" → "2025-07-30"
+      const time = dateRaw.slice(11, 19) || "00:00:00";
+
+      const netChange = parseFloat(row["Net Change"] || 0);
+      if (netChange === 0) return null;
+      const credit = netChange > 0 ? netChange : 0;
+      const debit  = netChange < 0 ? Math.abs(netChange) : 0;
+      const desc   = row["Description"]?.trim() || "";
+      const txType = row["Transaction Type"]?.trim() || "";
+
+      let type, category, subcategory, merchant;
+      if (credit > 0) {
+        type = "income"; category = "Receita";
+        const fromMatch = desc.match(/from\s+([A-Z][A-Z0-9 .,'&-]+?)(?:\s{2,}|\s+\w{2}\s+\d{5}|$)/i);
+        merchant = fromMatch ? fromMatch[1].trim() : (txType || "Depósito");
+        subcategory = merchant;
+      } else {
+        type = "expense"; category = txType || "Transferência";
+        const toMatch = desc.match(/to\s+([A-Z][A-Z0-9 .,'&-]+?)(?:\s{2,}|\s+\w{2}\s+\d{5}|$)/i);
+        merchant = toMatch ? toMatch[1].trim() : desc.slice(0, 40);
+        subcategory = category;
+      }
+
+      return {
+        date: iso, time,
+        id: row["id"]?.trim() || ("lr_" + Math.random().toString(36).slice(2)),
+        description: desc, credit, debit,
+        currency: (credit > 0 ? row["Asset Received"] : row["Asset Sent"])?.trim() || "USD",
+        status: row["Status"]?.trim() || "Completed",
+        runningBalance: parseFloat(row["Account Balance"] || 0),
+        additional: row["Purpose"]?.trim() || "",
+        category, subcategory, merchant, type,
+      };
+    }
+
+    // ── LootRush — Cartão ────────────────────────────────────────────────────
+    function parseLootRushCardRow(row) {
+      const dateRaw = row["transaction date"]?.trim();
+      if (!dateRaw) return null;
+      const amount = parseFloat(row["amount"] || 0);
+      if (amount === 0) return null;
+
+      const desc     = row["description"]?.trim() || "";
+      const nickname = row["nickname"]?.trim() || "";
+      const status   = row["status"]?.trim() || "";
+      if (status && status.toLowerCase() === "pending") return null; // skip pending
+
+      // Clean merchant name: "FACEBK *36LY6XC7B2" → "Facebook"
+      const merchant = cleanCardMerchant(desc);
+
+      return {
+        date: dateRaw, time: "00:00:00",
+        id: row["transaction id"]?.trim() || ("lr_card_" + Math.random().toString(36).slice(2)),
+        description: desc, credit: 0, debit: amount,
+        currency: "USD",
+        status: status || "Settled",
+        runningBalance: 0,
+        additional: nickname,
+        category: "Cartão",
+        subcategory: nickname,
+        merchant, type: "expense",
+      };
+    }
+
+    function cleanCardMerchant(desc) {
+      const known = { "FACEBK": "Facebook Ads", "GOOGL": "Google Ads", "AMZN": "Amazon",
+                      "PAYPAL": "PayPal", "TWILIO": "Twilio", "CLKBANK": "ClickBank",
+                      "LATAM": "LATAM Air", "UBER": "Uber", "NETFLIX": "Netflix" };
+      for (const [k, v] of Object.entries(known)) {
+        if (desc.toUpperCase().includes(k)) return v;
+      }
+      return desc.replace(/\*[A-Z0-9]+\s*/g, "").replace(/\s+/g, " ").trim() || desc;
+    }
+
+    function parseCategory(src) {
+      const cleaned = src.replace(/\s*\(USD balance\)\s*$/i, "").trim();
+      if (cleaned.includes(" - ")) {
+        const [cat, sub] = cleaned.split(" - ", 2);
+        return [cat.trim(), sub.trim()];
+      }
+      return [cleaned, ""];
+    }
+
+    function extractMerchant(desc) {
+      const m = desc.match(/\((.*?)\)/);
+      return m ? m[1] : "";
+    }
+
+    // ── Wise ─────────────────────────────────────────────────────────────────
+    function parseWiseRow(row) {
+      const dateRaw = row["Date"]?.trim();
+      if (!dateRaw) return null;
+      const [d, m, y] = dateRaw.split("-");
+      const iso = `${y}-${m}-${d}`;
+
+      const dateTime = row["Date Time"]?.trim() || "";
+      const time = dateTime.length >= 19 ? dateTime.slice(11, 19) : "00:00:00";
+
+      const amount = parseFloat(row["Amount"] || 0);
+      if (amount === 0) return null;
+
+      const isCredit    = amount > 0;
+      const credit      = isCredit ? amount : 0;
+      const debit       = isCredit ? 0 : Math.abs(amount);
+      const detailType  = row["Transaction Details Type"]?.trim() || "";
+      const desc        = row["Description"]?.trim() || "";
+      const payerName   = row["Payer Name"]?.trim() || "";
+      const payeeName   = row["Payee Name"]?.trim() || "";
+      const merchantRaw = row["Merchant"]?.trim() || "";
+
+      let type, category, subcategory, merchant;
+
+      if (isCredit) {
+        if (detailType === "CARD_CASHBACK") {
+          type = "refund"; category = "Cartão"; subcategory = "Cashback"; merchant = "Cashback";
+        } else {
+          type = "income"; category = "Receita";
+          merchant = payerName || "Wise";
+          subcategory = merchant;
+        }
+      } else {
+        if (detailType === "CARD") {
+          type = "expense"; category = "Cartão";
+          // "Elevenlabs.io ELEVENLABS.IO" → keep first meaningful part
+          merchant = merchantRaw.replace(/\s+[A-Z][A-Z.]{2,}(\s+[A-Z][A-Z.]{2,})*$/, "").trim() || merchantRaw;
+          subcategory = "Cartão Wise";
+        } else {
+          type = "expense"; category = "Transferência";
+          merchant = payeeName || desc.replace(/^Sent money to\s*/i, "").slice(0, 50);
+          subcategory = "Transferência";
+        }
+      }
+
+      return {
+        date: iso, time,
+        id: row["TransferWise ID"]?.trim() || ("wise_" + Math.random().toString(36).slice(2)),
+        description: desc, credit, debit,
+        currency: row["Currency"]?.trim() || "USD",
+        status: "Completed",
+        runningBalance: parseFloat(row["Running Balance"] || 0),
+        additional: row["Payment Reference"]?.trim() || "",
+        category, subcategory, merchant, type,
+      };
+    }
+
+    // Dispatch: choose row parser based on detected format
+    const ROW_PARSERS = {
+      "payoneer":          parsePayoneerRow,
+      "lootrush-transfer": parseLootRushTransferRow,
+      "lootrush-card":     parseLootRushCardRow,
+      "wise":              parseWiseRow,
+    };
+
+    // ============================================================
+    // Import flow — multi-file
+    // ============================================================
+    let pendingImports = []; // [{ txs, period, firstMonth, lastMonth, filename }]
+
+    document.getElementById("csv-input").addEventListener("change", function () {
+      const files = Array.from(this.files);
+      this.value = "";
+      if (!files.length) return;
+
+      // Read all files in parallel
+      Promise.all(files.map(f => new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = e => res({ text: e.target.result, filename: f.name });
+        r.onerror = rej;
+        r.readAsText(f, "utf-8");
+      }))).then(results => {
+        const items = [];
+        const errors = [];
+        results.forEach(({ text, filename }) => {
+          const parsed = parseCSV(text);
+          if (!parsed || parsed.error) { errors.push(`${filename}: ${parsed?.error || "arquivo inválido"}`); return; }
+          const parser = ROW_PARSERS[parsed.format];
+          if (!parser) { errors.push(`${filename}: parser não encontrado para formato "${parsed.format}"`); return; }
+          const txs = parsed.rows.map(parser).filter(Boolean);
+          if (!txs.length) { errors.push(`${filename}: nenhuma transação encontrada`); return; }
+          const dates = txs.map(t => t.date).sort();
+          const firstMonth = dates[0].slice(0,7);
+          const lastMonth  = dates[dates.length-1].slice(0,7);
+          const period = firstMonth === lastMonth ? monthName(firstMonth) : `${monthName(firstMonth)} – ${monthName(lastMonth)}`;
+          items.push({ txs, period, firstMonth, lastMonth, filename });
+        });
+        if (errors.length) alert("Arquivos ignorados:\n" + errors.join("\n"));
+        if (!items.length) return;
+        openImportModal(items);
+      });
+    });
+
+    function openImportModal(items) {
+      pendingImports = items;
+
+      // Title
+      document.getElementById("modal-import-title").textContent =
+        items.length === 1 ? "Confirmar Importação" : `Confirmar Importação (${items.length} arquivos)`;
+
+      // Populate accounts datalist
+      const accs = [...new Set(state.accounts.map(a => a.name))];
+      document.getElementById("import-accounts-list").innerHTML = accs.map(a => `<option value="${a}">`).join("");
+      document.getElementById("import-account-all").value = "";
+      document.getElementById("modal-import-warn").classList.add("hidden");
+
+      // Render file rows
+      document.getElementById("import-files-list").innerHTML = items.map((item, i) => `
+        <div class="bg-slate-950 rounded-lg p-3 space-y-2">
+          <div class="flex items-center justify-between text-sm">
+            <span class="font-medium truncate">${item.filename}</span>
+            <span class="text-slate-400 ml-3 whitespace-nowrap">${item.period} · ${item.txs.length} txs</span>
+          </div>
+          <div class="flex gap-3 text-xs">
+            <span class="text-emerald-400">${fmt(item.txs.reduce((s,t)=>s+t.credit,0))}</span>
+            <span class="text-rose-400">${fmt(item.txs.reduce((s,t)=>s+t.debit,0))}</span>
+          </div>
+          <input type="text" data-idx="${i}" list="import-accounts-list"
+                 placeholder="Conta *" value=""
+                 class="import-acc-input w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500" />
+        </div>`).join("");
+
+      const modal = document.getElementById("modal-import");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      setTimeout(() => document.querySelector(".import-acc-input")?.focus(), 50);
+    }
+
+    function closeImportModal() {
+      const modal = document.getElementById("modal-import");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+      pendingImports = [];
+    }
+
+    // Apply-to-all button
+    document.getElementById("btn-apply-all").addEventListener("click", () => {
+      const val = document.getElementById("import-account-all").value.trim();
+      if (!val) return;
+      document.querySelectorAll(".import-acc-input").forEach(el => el.value = val);
+    });
+
+    document.getElementById("modal-import-close").addEventListener("click", closeImportModal);
+    document.getElementById("btn-cancel-import").addEventListener("click", closeImportModal);
+    document.getElementById("modal-import").addEventListener("click", e => { if (e.target === document.getElementById("modal-import")) closeImportModal(); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closeImportModal(); });
+
+    document.getElementById("btn-confirm-import").addEventListener("click", () => {
+      // Collect account names per file
+      const inputs = Array.from(document.querySelectorAll(".import-acc-input"));
+      const missing = inputs.some(el => !el.value.trim());
+      if (missing) {
+        document.getElementById("modal-import-warn").textContent = "Informe a conta de todos os arquivos.";
+        document.getElementById("modal-import-warn").classList.remove("hidden");
+        return;
+      }
+      const btn = document.getElementById("btn-confirm-import");
+      btn.disabled = true;
+      btn.textContent = `Importando 0/${pendingImports.length}…`;
+
+      (async () => {
+        try {
+          for (let i = 0; i < pendingImports.length; i++) {
+            const { txs, firstMonth, lastMonth, filename } = pendingImports[i];
+            const accountName = inputs[i].value.trim();
+            const accId = accountName.toLowerCase().replace(/\W+/g, "-");
+            const storageKey = `${accId}_${firstMonth}` + (firstMonth !== lastMonth ? `_${lastMonth}` : "");
+            await apiImport({ storageKey, account: accountName, accId, transactions: txs, filename });
+            btn.textContent = `Importando ${i+1}/${pendingImports.length}…`;
+          }
+          closeImportModal();
+          window.location.reload();
+        } catch(e) {
+          document.getElementById("modal-import-warn").textContent = "Erro: " + e.message;
+          document.getElementById("modal-import-warn").classList.remove("hidden");
+          btn.disabled = false;
+          btn.textContent = "Importar";
+        }
+      })();
+    });
+
+    async function removeImport(key) {
+      if (!confirm("Remover este extrato importado?")) return;
+      try {
+        await apiRemove(key);
+        window.location.reload();
+      } catch(e) {
+        alert("Erro ao remover: " + e.message);
+      }
+    }
+    window.removeImport = removeImport;
+
+    // ============================================================
+    // Filters
+    // ============================================================
+    let selectedAccounts = new Set(); // empty = all
+    let _imports = {};
+
+    function refreshAccountFilter() {
+      renderAccountPanel();
+      updateAccountLabel();
+    }
+
+    function refreshMonthFilter() {
+      const allTxs = getAllTxs();
+      availableMonths = new Set(allTxs.map(t => t.date.slice(0,7)));
+      if (startMonth && !availableMonths.has(startMonth)) { startMonth = null; endMonth = null; }
+      if (endMonth   && !availableMonths.has(endMonth))   { endMonth = null; }
+      if (!pickerYear) {
+        const years = [...availableMonths].map(m => parseInt(m.slice(0, 4)));
+        pickerYear = years.length ? Math.max(...years) : new Date().getFullYear();
+      }
+      renderMonthGrid();
+      updatePickerLabel();
+    }
+
+    async function refreshImportsList() {
+      _imports = await apiGetImports();
+      renderImportsList();
+    }
+
+    function renderImportsList() {
+      const imports = _imports;
+      const keys = Object.keys(imports);
+      const section = document.getElementById("imports-section");
+      if (!keys.length) { section.classList.add("hidden"); return; }
+      section.classList.remove("hidden");
+
+      const trash = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>`;
+
+      const fmtK = n => {
+        if (Math.abs(n) >= 1e6) return "$" + (n/1e6).toFixed(2) + "M";
+        if (Math.abs(n) >= 1e3) return "$" + (n/1e3).toFixed(1) + "k";
+        return fmt(n);
+      };
+      const netColor = n => n >= 0 ? "text-emerald-400" : "text-rose-400";
+
+      // Column header template
+      const colHead = `
+        <div class="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-4 items-center px-3 py-1.5 text-[10px] uppercase tracking-wider text-slate-600">
+          <span>Extrato</span>
+          <span class="w-12 text-right">Txs</span>
+          <span class="w-24 text-right">Receita</span>
+          <span class="w-24 text-right">Despesa</span>
+          <span class="w-24 text-right">Resultado</span>
+          <span class="w-4"></span>
+        </div>`;
+
+      // Group: account → year → [items]
+      const groups = {};
+      keys.forEach(k => {
+        const v = imports[k];
+        const datePart = v.month.replace(/^[^_]+_/, "");
+        const year = datePart.slice(0, 4);
+        if (!groups[v.account]) groups[v.account] = { accId: v.accId, byYear: {} };
+        if (!groups[v.account].byYear[year]) groups[v.account].byYear[year] = [];
+        groups[v.account].byYear[year].push({ k, ...v, datePart });
+      });
+      Object.values(groups).forEach(({ byYear }) =>
+        Object.values(byYear).forEach(g => g.sort((a, b) => a.month.localeCompare(b.month)))
+      );
+
+      // Grand totals
+      let grandIncome = 0, grandExpense = 0;
+
+      const accountBlocks = Object.entries(groups)
+        .filter(([, { accId }]) => selectedAccounts.size === 0 || selectedAccounts.has(accId))
+        .map(([accName, { byYear }]) => {
+        const allItems = Object.values(byYear).flat();
+        const accIncome  = allItems.reduce((s, i) => s + (i.income  || 0), 0);
+        const accExpense = allItems.reduce((s, i) => s + (i.expense || 0), 0);
+        const accNet = accIncome - accExpense;
+        grandIncome  += accIncome;
+        grandExpense += accExpense;
+
+        const years = Object.keys(byYear).sort();
+        const yearBlocks = years.map(year => {
+          const items = byYear[year];
+          const yIncome  = items.reduce((s, i) => s + (i.income  || 0), 0);
+          const yExpense = items.reduce((s, i) => s + (i.expense || 0), 0);
+          const yNet = yIncome - yExpense;
+
+          const rows = items.map(({ k, datePart, count, filename, income = 0, expense = 0 }) => {
+            const net = income - expense;
+            const label = datePart.includes("_")
+              ? datePart.split("_").map(m => monthName(m)).join("–")
+              : monthName(datePart);
+            return `
+              <div class="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-4 items-center py-1.5 px-3 rounded-lg hover:bg-slate-800/50 group num text-sm">
+                <span class="text-slate-300 not-num truncate" title="${filename || ""}">${label}</span>
+                <span class="w-12 text-right text-slate-500 text-xs">${count}</span>
+                <span class="w-24 text-right text-emerald-400">${fmtK(income)}</span>
+                <span class="w-24 text-right text-rose-400">${fmtK(expense)}</span>
+                <span class="w-24 text-right ${netColor(net)}">${fmtK(net)}</span>
+                <span class="w-4 text-right">
+                  <button onclick="removeImport('${k}')" class="text-slate-700 hover:text-rose-400 transition opacity-0 group-hover:opacity-100" title="Remover">${trash}</button>
+                </span>
+              </div>`;
+          }).join("");
+
+          // Year subtotal row
+          const yearFooter = `
+            <div class="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-4 items-center py-1.5 px-3 num text-xs border-t border-slate-800/60 mt-1">
+              <span class="text-slate-500">Subtotal ${year}</span>
+              <span class="w-12 text-right text-slate-600">${items.length} ext</span>
+              <span class="w-24 text-right text-emerald-500">${fmtK(yIncome)}</span>
+              <span class="w-24 text-right text-rose-500">${fmtK(yExpense)}</span>
+              <span class="w-24 text-right ${netColor(yNet)}">${fmtK(yNet)}</span>
+              <span class="w-4"></span>
+            </div>`;
+
+          return `
+            <details open class="group/year">
+              <summary class="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] gap-x-4 items-center px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-800/40 list-none select-none num">
+                <svg class="w-3 h-3 text-slate-500 transition-transform group-open/year:rotate-90 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                <span class="text-slate-400 text-sm font-medium not-num">${year}</span>
+                <span class="w-12 text-right text-slate-600 text-xs">${items.length} ext</span>
+                <span class="w-24 text-right text-emerald-500 text-xs">${fmtK(yIncome)}</span>
+                <span class="w-24 text-right text-rose-500 text-xs">${fmtK(yExpense)}</span>
+                <span class="w-24 text-right text-xs ${netColor(yNet)}">${fmtK(yNet)}</span>
+                <span class="w-4"></span>
+              </summary>
+              <div class="ml-3 mt-0.5">
+                ${colHead}
+                ${rows}
+                ${yearFooter}
+              </div>
+            </details>`;
+        }).join("");
+
+        // First active month label
+        const firstMonth = allItems
+          .map(i => i.datePart.split("_")[0])
+          .sort()[0];
+        const sinceTag = firstMonth
+          ? `<span class="ml-2 text-[10px] font-normal text-slate-500 bg-slate-800 border border-slate-700/60 px-1.5 py-0.5 rounded not-num">desde ${monthName(firstMonth)}</span>`
+          : "";
+
+        // Account header with totals
+        return `
+          <div class="border-t border-slate-800 first:border-t-0">
+            <div class="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 items-center px-5 py-3 num">
+              <span class="font-semibold text-slate-200 not-num">${accName}${sinceTag}</span>
+              <span class="w-12 text-right text-slate-500 text-xs">${allItems.length} ext</span>
+              <span class="w-24 text-right text-emerald-400 text-sm">${fmtK(accIncome)}</span>
+              <span class="w-24 text-right text-rose-400 text-sm">${fmtK(accExpense)}</span>
+              <span class="w-24 text-right text-sm ${netColor(accNet)}">${fmtK(accNet)}</span>
+            </div>
+            <div class="px-4 pb-2 space-y-0.5">${yearBlocks}</div>
+          </div>`;
+      }).join("");
+
+      const grandNet = grandIncome - grandExpense;
+      const footer = `
+        <div class="border-t-2 border-slate-700 px-5 py-4 grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 items-center num">
+          <span class="font-semibold text-slate-200 not-num">Total Geral</span>
+          <span class="w-12"></span>
+          <span class="w-24 text-right text-emerald-300 font-semibold">${fmtK(grandIncome)}</span>
+          <span class="w-24 text-right text-rose-300 font-semibold">${fmtK(grandExpense)}</span>
+          <span class="w-24 text-right font-semibold ${netColor(grandNet)}">${fmtK(grandNet)}</span>
+        </div>`;
+
+      document.getElementById("imports-list").innerHTML = accountBlocks + footer;
+    }
+
+    async function refreshAll() {
+      rebuildState();
+      refreshAccountFilter();
+      refreshMonthFilter();
+      await refreshImportsList();
+      render();
+    }
+
+    function getFilteredTxs() {
+      const accounts = selectedAccounts.size === 0
+        ? state.accounts
+        : state.accounts.filter(a => selectedAccounts.has(a.id));
+      let txs = [];
+      accounts.forEach(a => a.transactions.forEach(t => txs.push({ ...t, account: a.name })));
+      if (startMonth && endMonth) {
+        txs = txs.filter(t => { const m = t.date.slice(0,7); return m >= startMonth && m <= endMonth; });
+      } else if (startMonth) {
+        txs = txs.filter(t => t.date.startsWith(startMonth));
+      }
+      return txs;
+    }
+
+    function getAllTxs() {
+      let txs = [];
+      state.accounts.forEach(a => a.transactions.forEach(t => txs.push({ ...t, account: a.name })));
+      return txs;
+    }
+
+    // ============================================================
+    // Render
+    // ============================================================
+    function render() {
+      const txs = getFilteredTxs();
+      const allTxs = getAllTxs();
+
+      let income = 0, expense = 0, refund = 0;
+      txs.forEach(t => {
+        if (t.type === "income") income += t.credit;
+        else if (t.type === "expense") expense += t.debit;
+        else if (t.type === "refund") refund += t.credit;
+      });
+      const netExpense = expense - refund;
+      const net = income - netExpense;
+
+      document.getElementById("kpi-income").textContent = fmt(income);
+      document.getElementById("kpi-income-count").textContent = `${txs.filter(t=>t.type==="income").length} entradas`;
+      document.getElementById("kpi-expense").textContent = fmt(netExpense);
+      document.getElementById("kpi-expense-count").textContent =
+        `${txs.filter(t=>t.type==="expense").length} cobranças${refund > 0 ? ` · ${fmt(refund)} estornos` : ""}`;
+      const netEl = document.getElementById("kpi-net");
+      netEl.textContent = fmt(net);
+      netEl.className = "num text-2xl font-semibold " + (net >= 0 ? "text-emerald-400" : "text-rose-400");
+
+      const catTotals = {};
+      txs.forEach(t => {
+        if (t.type === "expense") catTotals[t.category] = (catTotals[t.category] || 0) + t.debit;
+        else if (t.type === "refund") catTotals[t.category] = (catTotals[t.category] || 0) - t.credit;
+      });
+      const topCat = Object.entries(catTotals).sort((a,b) => b[1]-a[1])[0];
+      document.getElementById("kpi-topcat").textContent = topCat ? topCat[0] : "—";
+      document.getElementById("kpi-topcat-amount").textContent = topCat ? fmt(topCat[1]) : "";
+
+      const latestBalance = state.accounts.reduce((sum, a) => {
+        if (!a.transactions.length) return sum;
+        return sum + (a.transactions[a.transactions.length - 1].runningBalance || 0);
+      }, 0);
+      document.getElementById("header-balance").textContent = fmt(latestBalance);
+
+      const importCount = state.accounts.reduce((s, a) => s + (a.transactions.length ? 1 : 0), 0);
+      document.getElementById("header-sub").textContent =
+        `${allTxs.length} transações · ${state.accounts.length} conta(s)` +
+        (importCount ? ` · ${importCount} extrato(s) importado(s)` : "") +
+        ` · Atualizado em ${state.generatedAt?.replace("T"," ").slice(0,16) || "—"}`;
+
+      document.getElementById("tx-count").textContent = `${txs.length} transações`;
+
+      renderMonthlyChart(txs);
+      renderCategoryChart(catTotals);
+      renderBalanceChart();
+      renderDRTable();
+      renderTable(txs);
+      renderImportsList();
+      renderIRSection().catch(console.error);
+      updateKPIsBRL(income, netExpense, net).catch(console.error);
+      if (currentView === "resumo") renderResumo();
+    }
+
+    // ============================================================
+    // Charts
+    // ============================================================
+    function renderMonthlyChart(txs) {
+      const byMonth = {};
+      txs.forEach(t => {
+        const m = t.date.slice(0,7);
+        if (!byMonth[m]) byMonth[m] = { income: 0, expense: 0 };
+        if (t.type === "income") byMonth[m].income += t.credit;
+        else if (t.type === "expense") byMonth[m].expense += t.debit;
+        else if (t.type === "refund") byMonth[m].expense -= t.credit;
+      });
+      const months = Object.keys(byMonth).sort();
+      if (charts.monthly) charts.monthly.destroy();
+      charts.monthly = new Chart(document.getElementById("chart-monthly"), {
+        type: "bar",
+        data: {
+          labels: months.map(monthName),
+          datasets: [
+            { label: "Receita", data: months.map(m => byMonth[m].income), backgroundColor: "#10b981", borderRadius: 4 },
+            { label: "Despesa", data: months.map(m => byMonth[m].expense), backgroundColor: "#ef4444", borderRadius: 4 },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: {
+            y: { ticks: { callback: v => "$" + (v/1000).toFixed(0) + "k" }, grid: { color: "#1e293b" } },
+            x: { grid: { display: false } },
+          },
+          plugins: {
+            legend: { position: "bottom", labels: { boxWidth: 12, padding: 16 } },
+            tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } },
+          },
+        },
+      });
+    }
+
+    function renderCategoryChart(catTotals) {
+      const entries = Object.entries(catTotals).filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]);
+      if (charts.categories) charts.categories.destroy();
+      const wrap = document.getElementById("cat-chart-wrap");
+      if (!entries.length) {
+        wrap.innerHTML = '<div class="flex items-center justify-center h-full text-slate-500 text-sm">Sem despesas no filtro</div>';
+        return;
+      }
+      if (!wrap.querySelector("canvas")) wrap.innerHTML = '<canvas id="chart-categories"></canvas>';
+      charts.categories = new Chart(document.getElementById("chart-categories"), {
+        type: "doughnut",
+        data: { labels: entries.map(([k])=>k), datasets: [{ data: entries.map(([,v])=>v), backgroundColor: PALETTE, borderColor: "#0f172a", borderWidth: 2 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: "60%",
+          plugins: {
+            legend: { position: "bottom", labels: { boxWidth: 12, padding: 12, font: { size: 11 } } },
+            tooltip: { callbacks: { label: ctx => `${ctx.label}: ${fmt(ctx.parsed)}` } },
+          },
+        },
+      });
+    }
+
+    function renderBalanceChart() {
+      const txs = [...getFilteredTxs()].sort((a, b) =>
+        a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+
+      if (charts.balance) { charts.balance.destroy(); charts.balance = null; }
+
+      if (!txs.length) return;
+
+      // Cumulative net per day (income − expense + refund)
+      let running = 0;
+      const byDate = {};
+      txs.forEach(t => {
+        if (t.type === "income")       running += t.credit;
+        else if (t.type === "expense") running -= t.debit;
+        else if (t.type === "refund")  running += t.credit;
+        byDate[t.date] = running;
+      });
+
+      // Convert to timestamps so Chart.js time scale works regardless of parsing mode
+      const points = Object.entries(byDate)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([d, y]) => ({ x: new Date(d + "T12:00:00").getTime(), y }));
+
+      if (!points.length) return;
+
+      const spanDays = (points.at(-1).x - points[0].x) / 86400000;
+      const timeUnit = spanDays > 90 ? "month" : spanDays > 14 ? "week" : "day";
+
+      // Plugin: colored background above/below zero
+      const zonePlugin = {
+        id: "zeroZone",
+        beforeDraw(chart) {
+          const { ctx, chartArea: ca, scales: { y } } = chart;
+          if (!ca) return;
+          const z = Math.max(ca.top, Math.min(ca.bottom, y.getPixelForValue(0)));
+          ctx.save();
+          ctx.fillStyle = "rgba(16,185,129,0.05)";
+          ctx.fillRect(ca.left, ca.top, ca.width, z - ca.top);
+          ctx.fillStyle = "rgba(239,68,68,0.05)";
+          ctx.fillRect(ca.left, z, ca.width, ca.bottom - z);
+          ctx.restore();
+        }
+      };
+
+      charts.balance = new Chart(document.getElementById("chart-balance"), {
+        type: "line",
+        data: { datasets: [{ label: "Resultado Acumulado (USD)", data: points,
+          fill: false, tension: 0, pointRadius: 0, pointHoverRadius: 5,
+          segment: {
+            borderColor: ctx => ctx.p0.parsed.y < 0 ? "#ef4444" : "#10b981",
+          },
+          borderWidth: 2,
+        }] },
+        options: {
+          responsive: true, maintainAspectRatio: false, parsing: false,
+          scales: {
+            x: { type: "time", time: { unit: timeUnit, tooltipFormat: "dd/MM/yyyy" }, grid: { color: "#1e293b" } },
+            y: { ticks: { callback: v => {
+              const abs = Math.abs(v / 1000);
+              return (v < 0 ? "-$" : "$") + (abs >= 1000 ? (abs/1000).toFixed(1)+"M" : abs.toFixed(0)+"k");
+            }}, grid: { color: "#1e293b" } },
+          },
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => fmt(ctx.parsed.y) } } },
+        },
+        plugins: [zonePlugin],
+      });
+    }
+
+    // ============================================================
+    // DR Mensal
+    // ============================================================
+    function renderDRTable() {
+      const txs = getFilteredTxs();
+      const byMonth = {};
+      txs.forEach(t => {
+        const m = t.date.slice(0,7);
+        if (!byMonth[m]) byMonth[m] = { income: 0, expense: 0, refund: 0 };
+        if (t.type === "income")   byMonth[m].income  += t.credit;
+        else if (t.type === "expense") byMonth[m].expense += t.debit;
+        else if (t.type === "refund")  byMonth[m].refund  += t.credit;
+      });
+
+      const months = Object.keys(byMonth).sort();
+      const tbody = document.getElementById("dr-table");
+      const tfoot = document.getElementById("dr-footer");
+
+      if (!months.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="px-5 py-8 text-center text-slate-500">Nenhuma transação no período</td></tr>';
+        tfoot.innerHTML = "";
+        return;
+      }
+
+      let totIncome = 0, totExpense = 0, totRefund = 0;
+
+      tbody.innerHTML = months.map(m => {
+        const { income, expense, refund } = byMonth[m];
+        const netExp = expense - refund;
+        const net = income - netExp;
+        const margin = income > 0 ? (net / income * 100) : null;
+        totIncome  += income;
+        totExpense += expense;
+        totRefund  += refund;
+        const netCls = net >= 0 ? "text-emerald-400" : "text-rose-400";
+        const marginTxt = margin !== null ? (margin.toFixed(1) + "%") : "—";
+        const marginCls = margin === null ? "text-slate-500" : margin >= 0 ? "text-emerald-400" : "text-rose-400";
+        return `
+          <tr class="border-t border-slate-800 hover:bg-slate-800/30">
+            <td class="px-5 py-3 text-slate-300 not-num">${monthName(m)}</td>
+            <td class="px-5 py-3 text-right text-emerald-400">${fmt(income)}</td>
+            <td class="px-5 py-3 text-right text-rose-400">${fmt(netExp)}</td>
+            <td class="px-5 py-3 text-right font-medium ${netCls}">${fmt(net)}</td>
+            <td class="px-5 py-3 text-right ${marginCls}">${marginTxt}</td>
+          </tr>`;
+      }).join("");
+
+      const totNetExp = totExpense - totRefund;
+      const totNet = totIncome - totNetExp;
+      const totMargin = totIncome > 0 ? (totNet / totIncome * 100).toFixed(1) + "%" : "—";
+      const totNetCls = totNet >= 0 ? "text-emerald-300" : "text-rose-300";
+      const totMarginCls = totNet >= 0 ? "text-emerald-300" : "text-rose-300";
+      tfoot.innerHTML = `
+        <tr class="text-sm font-semibold">
+          <td class="px-5 py-3 text-slate-200 not-num">Total (${months.length} ${months.length === 1 ? "mês" : "meses"})</td>
+          <td class="px-5 py-3 text-right text-emerald-300">${fmt(totIncome)}</td>
+          <td class="px-5 py-3 text-right text-rose-300">${fmt(totNetExp)}</td>
+          <td class="px-5 py-3 text-right ${totNetCls}">${fmt(totNet)}</td>
+          <td class="px-5 py-3 text-right ${totMarginCls}">${totMargin}</td>
+        </tr>`;
+    }
+
+    // ============================================================
+    // Table
+    // ============================================================
+    function renderTable(txs) {
+      const search = (document.getElementById("tx-search").value || "").toLowerCase();
+      const filtered = search
+        ? txs.filter(t =>
+            (t.description||"").toLowerCase().includes(search) ||
+            (t.merchant||"").toLowerCase().includes(search) ||
+            (t.category||"").toLowerCase().includes(search) ||
+            (t.account||"").toLowerCase().includes(search))
+        : txs;
+
+      const sorted = [...filtered].sort((a,b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
+      const tbody = document.getElementById("tx-table");
+      if (!sorted.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">Nenhuma transação</td></tr>';
+        return;
+      }
+      tbody.innerHTML = sorted.map(t => {
+        const badge = t.type === "income"
+          ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 text-xs">Receita</span>'
+          : t.type === "refund"
+          ? `<span class="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 text-xs">Estorno</span>`
+          : `<span class="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-300 text-xs">${t.category||"Outros"}</span>`;
+        return `
+          <tr class="border-t border-slate-800 hover:bg-slate-800/30">
+            <td class="px-4 py-2.5 num text-slate-400 whitespace-nowrap">${dateBR(t.date)}</td>
+            <td class="px-4 py-2.5 text-slate-400 text-xs whitespace-nowrap">${t.account||""}</td>
+            <td class="px-4 py-2.5">
+              <div class="font-medium">${t.merchant||t.description}</div>
+              <div class="text-xs text-slate-500">${t.subcategory||""}</div>
+            </td>
+            <td class="px-4 py-2.5">${badge}</td>
+            <td class="px-4 py-2.5 text-right num text-emerald-400">${t.credit > 0 ? fmt(t.credit) : ""}</td>
+            <td class="px-4 py-2.5 text-right num text-rose-400">${t.debit > 0 ? fmt(t.debit) : ""}</td>
+            <td class="px-4 py-2.5 text-right num text-slate-400">${t.runningBalance ? fmt(t.runningBalance) : "—"}</td>
+          </tr>`;
+      }).join("");
+    }
+
+    // ============================================================
+    // Boot
+    // ============================================================
+    document.getElementById("tx-search").addEventListener("input", () => renderTable(getFilteredTxs()));
+
+    // ============================================================
+    // Month picker
+    // ============================================================
+    let startMonth = null;
+    let endMonth   = null;
+    let availableMonths = new Set();
+    let pickerYear = null;
+
+    const MONTH_LABELS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+    function renderMonthGrid() {
+      const grid = document.getElementById("month-grid");
+      document.getElementById("picker-year-label").textContent = pickerYear;
+      grid.innerHTML = MONTH_LABELS.map((label, i) => {
+        const ym        = `${pickerYear}-${String(i+1).padStart(2,"0")}`;
+        const available = availableMonths.has(ym);
+        const isStart   = ym === startMonth;
+        const isEnd     = ym === endMonth;
+        const inRange   = startMonth && endMonth && ym > startMonth && ym < endMonth;
+        const pendingHover = startMonth && !endMonth; // show hint that second click needed
+
+        let cls;
+        if (isStart || isEnd) {
+          cls = "bg-emerald-600 text-white ring-1 ring-emerald-400";
+        } else if (inRange) {
+          cls = "bg-emerald-900/70 text-emerald-200";
+        } else if (available) {
+          cls = pendingHover
+            ? "text-slate-200 hover:bg-emerald-700/50 hover:text-white"
+            : "text-slate-200 hover:bg-slate-700";
+        } else {
+          cls = "text-slate-600 cursor-default";
+        }
+
+        return `
+          <button data-ym="${ym}"
+                  class="month-cell rounded-lg py-2 text-xs font-medium transition ${cls}"
+                  ${available ? "" : "disabled"}>
+            ${label}
+          </button>`;
+      }).join("");
+    }
+
+    function updatePickerLabel() {
+      const label = document.getElementById("month-picker-label");
+      const btn   = document.getElementById("month-picker-btn");
+      if (!startMonth) {
+        label.textContent = "Todos os meses";
+        btn.classList.remove("border-emerald-500");
+        btn.classList.add("border-slate-700");
+      } else if (!endMonth) {
+        label.textContent = monthName(startMonth) + " →";
+        btn.classList.add("border-emerald-500");
+        btn.classList.remove("border-slate-700");
+      } else {
+        label.textContent = startMonth === endMonth
+          ? monthName(startMonth)
+          : monthName(startMonth) + " – " + monthName(endMonth);
+        btn.classList.add("border-emerald-500");
+        btn.classList.remove("border-slate-700");
+      }
+    }
+
+    function openPicker() {
+      const panel = document.getElementById("month-picker-panel");
+      panel.classList.toggle("hidden");
+    }
+    function closePicker() {
+      document.getElementById("month-picker-panel").classList.add("hidden");
+    }
+
+    document.getElementById("month-picker-btn").addEventListener("click", e => {
+      e.stopPropagation();
+      closeAccountPanel();
+      if (!pickerYear) pickerYear = new Date().getFullYear();
+      renderMonthGrid();
+      openPicker();
+    });
+
+    document.getElementById("month-prev-year").addEventListener("click", () => {
+      pickerYear--; renderMonthGrid();
+    });
+    document.getElementById("month-next-year").addEventListener("click", () => {
+      pickerYear++; renderMonthGrid();
+    });
+
+    document.getElementById("month-grid").addEventListener("click", e => {
+      const cell = e.target.closest(".month-cell");
+      if (!cell || cell.disabled) return;
+      const ym = cell.dataset.ym;
+
+      if (!startMonth || (startMonth && endMonth)) {
+        // Fresh selection: set start, keep picker open for end pick
+        startMonth = ym;
+        endMonth = null;
+      } else {
+        // startMonth set, no endMonth yet
+        if (ym >= startMonth) {
+          endMonth = ym;
+          closePicker();
+        } else {
+          // Clicked before start → restart with this as new start
+          startMonth = ym;
+          endMonth = null;
+        }
+      }
+
+      renderMonthGrid();
+      updatePickerLabel();
+      render();
+    });
+
+    document.getElementById("month-clear").addEventListener("click", () => {
+      startMonth = null;
+      endMonth   = null;
+      renderMonthGrid();
+      updatePickerLabel();
+      closePicker();
+      render();
+    });
+
+    // ============================================================
+    // Account multi-select
+    // ============================================================
+    function renderAccountPanel() {
+      document.getElementById("account-checkboxes").innerHTML = state.accounts.map(a => `
+        <label class="flex items-center gap-2 text-sm text-slate-300 hover:text-white cursor-pointer px-1 py-0.5 rounded">
+          <input type="checkbox" data-accid="${a.id}" class="acc-check accent-emerald-500 w-3.5 h-3.5"
+                 ${(selectedAccounts.size === 0 || selectedAccounts.has(a.id)) ? "checked" : ""}>
+          ${a.name}
+        </label>`).join("");
+    }
+
+    function updateAccountLabel() {
+      const label = document.getElementById("account-picker-label");
+      const btn   = document.getElementById("account-picker-btn");
+      if (selectedAccounts.size === 0) {
+        label.textContent = `Todas (${state.accounts.length})`;
+        btn.classList.remove("border-emerald-500"); btn.classList.add("border-slate-700");
+      } else {
+        const names = state.accounts.filter(a => selectedAccounts.has(a.id)).map(a => a.name);
+        label.textContent = names.length === 1 ? names[0] : `${names.length} contas`;
+        btn.classList.add("border-emerald-500"); btn.classList.remove("border-slate-700");
+      }
+    }
+
+    function closeAccountPanel() { document.getElementById("account-picker-panel").classList.add("hidden"); }
+
+    document.getElementById("account-picker-btn").addEventListener("click", e => {
+      e.stopPropagation();
+      closePicker();
+      document.getElementById("account-picker-panel").classList.toggle("hidden");
+    });
+
+    document.getElementById("acc-all").addEventListener("change", () => {
+      selectedAccounts.clear();
+      document.querySelectorAll(".acc-check").forEach(cb => cb.checked = true);
+      updateAccountLabel(); render();
+    });
+
+    document.getElementById("account-checkboxes").addEventListener("change", e => {
+      const cb = e.target.closest(".acc-check");
+      if (!cb) return;
+      selectedAccounts.clear();
+      document.querySelectorAll(".acc-check").forEach(c => { if (c.checked) selectedAccounts.add(c.dataset.accid); });
+      if (selectedAccounts.size === state.accounts.length) selectedAccounts.clear();
+      document.getElementById("acc-all").checked = selectedAccounts.size === 0;
+      updateAccountLabel(); render();
+    });
+
+    // ============================================================
+    // Year shortcuts
+    // ============================================================
+    function setYear(year) {
+      startMonth = `${year}-01`;
+      endMonth   = `${year}-12`;
+      renderMonthGrid();
+      updatePickerLabel();
+      const thisY = new Date().getFullYear();
+      document.getElementById("btn-this-year").classList.toggle("border-emerald-500", year === thisY);
+      document.getElementById("btn-this-year").classList.toggle("border-slate-700",   year !== thisY);
+      document.getElementById("btn-last-year").classList.toggle("border-emerald-500", year === thisY - 1);
+      document.getElementById("btn-last-year").classList.toggle("border-slate-700",   year !== thisY - 1);
+      render();
+    }
+
+    document.getElementById("btn-this-year").addEventListener("click", () => setYear(new Date().getFullYear()));
+    document.getElementById("btn-last-year").addEventListener("click", () => setYear(new Date().getFullYear() - 1));
+
+    document.addEventListener("click", e => {
+      const csvBtn = e.target.closest("#btn-export-csv");
+      const pdfBtn = e.target.closest("#btn-export-pdf");
+      if (csvBtn) exportIRCSV().catch(console.error);
+      if (pdfBtn) window.print();
+    });
+
+    // ============================================================
+    // Sidebar layout: sticky below header
+    // ============================================================
+    function updateSidebarLayout() {
+      const header  = document.querySelector("header");
+      const sidebar = document.getElementById("sidebar");
+      if (!header || !sidebar) return;
+      const h = header.offsetHeight;
+      sidebar.style.top    = h + "px";
+      sidebar.style.height = `calc(100vh - ${h}px)`;
+    }
+    updateSidebarLayout();
+    window.addEventListener("resize", updateSidebarLayout);
+
+    // ============================================================
+    // View switching
+    // ============================================================
+    let currentView = "home";
+
+    function switchView(view) {
+      currentView = view;
+      document.getElementById("view-home").classList.toggle("hidden", view !== "home");
+      document.getElementById("view-resumo").classList.toggle("hidden", view !== "resumo");
+      document.querySelectorAll(".nav-btn").forEach(btn => {
+        const active = btn.id === `nav-${view}`;
+        btn.classList.toggle("bg-slate-800",   active);
+        btn.classList.toggle("text-white",      active);
+        btn.classList.toggle("text-slate-400",  !active);
+        btn.classList.toggle("hover:bg-slate-800/50", !active);
+      });
+      if (view === "resumo") renderResumo();
+    }
+
+    // ============================================================
+    // Grupos predefinidos
+    // ============================================================
+    const GRUPOS = [
+      // ── Entradas ─────────────────────────────────────────
+      { id: "faturamento",    label: "Faturamento",           cor: "#10b981", tipo: "entrada",
+        match: t => t.type === "income" },
+      { id: "cashback",       label: "Estornos & Cashback",   cor: "#f59e0b", tipo: "entrada",
+        match: t => t.type === "refund" },
+      // ── Saídas ───────────────────────────────────────────
+      { id: "marketing",      label: "Marketing & Afiliados", cor: "#ef4444", tipo: "saida",
+        match: t => t.type === "expense" &&
+          /ship|trademar|mr21|gr5|ad1|bm70k|a358|aj1|ma10|h24|mv17|ofinitus|afilia/i
+            .test((t.category || "") + " " + (t.subcategory || "")) },
+      { id: "ferramentas",    label: "Ferramentas & SaaS",    cor: "#8b5cf6", tipo: "saida",
+        match: t => t.type === "expense" &&
+          /ferramenta|invoice|vturb|twilio|call.?loop/i
+            .test((t.category || "") + " " + (t.subcategory || "")) },
+      { id: "transferencias", label: "Transferências",        cor: "#3b82f6", tipo: "saida",
+        match: t => t.type === "expense" &&
+          /^transfer/i.test(t.category || "") },
+      { id: "cartao",         label: "Cartão",                cor: "#f97316", tipo: "saida",
+        match: t => t.type === "expense" &&
+          /cart[aã]o/i.test(t.category || "") },
+      { id: "outros",         label: "Outras Saídas",         cor: "#6b7280", tipo: "saida",
+        match: t => t.type === "expense" },
+    ];
+
+    function classifyTxs(txs) {
+      // First-match wins per group order
+      const result  = new Map();
+      const claimed = new Set();
+      for (const g of GRUPOS) {
+        for (const t of txs) {
+          if (claimed.has(t)) continue;
+          if (g.match(t)) { result.set(t, g.id); claimed.add(t); }
+        }
+      }
+      return result;
+    }
+
+    // ============================================================
+    // Render: Resumo de Entradas e Saídas
+    // ============================================================
+    function renderResumo() {
+      const el = document.getElementById("resumo-content");
+      if (!el) return;
+
+      const txs = getFilteredTxs();
+      if (!txs.length) {
+        el.innerHTML = '<div class="text-center py-16 text-slate-500">Nenhuma transação no período selecionado.</div>';
+        return;
+      }
+
+      const txClass = classifyTxs(txs);
+
+      // Aggregate by group
+      const agg = {};
+      GRUPOS.forEach(g => agg[g.id] = { total: 0, count: 0 });
+      txs.forEach(t => {
+        const gid = txClass.get(t); if (!gid) return;
+        agg[gid].total += t.type === "expense" ? t.debit : t.credit;
+        agg[gid].count++;
+      });
+
+      const entradas = GRUPOS.filter(g => g.tipo === "entrada");
+      const saidas   = GRUPOS.filter(g => g.tipo === "saida");
+      const totalIn  = entradas.reduce((s, g) => s + agg[g.id].total, 0);
+      const totalOut = saidas.reduce((s, g)   => s + agg[g.id].total, 0);
+      const net      = totalIn - totalOut;
+      const netCls   = net >= 0 ? "text-emerald-400" : "text-rose-400";
+
+      // Group row builder
+      const groupRow = g => {
+        const { total, count } = agg[g.id];
+        if (!count) return "";
+        const base = g.tipo === "entrada" ? totalIn : totalOut;
+        const pct  = base > 0 ? (total / base * 100) : 0;
+        const valCls = g.tipo === "entrada" ? "text-emerald-400" : "text-rose-400";
+        return `
+          <div class="flex items-center gap-3 py-2.5 border-b border-slate-800/50 last:border-0">
+            <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${g.cor}"></div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm text-slate-200">${g.label}</div>
+              <div class="text-xs text-slate-500 mt-0.5">${count} transações</div>
+            </div>
+            <div class="text-right shrink-0 w-28">
+              <div class="num text-sm font-semibold ${valCls}">${fmt(total)}</div>
+              <div class="text-xs text-slate-500">${pct.toFixed(1)}%</div>
+            </div>
+            <div class="w-20 shrink-0">
+              <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div class="h-full rounded-full" style="width:${Math.min(100,pct).toFixed(1)}%;background:${g.cor}"></div>
+              </div>
+            </div>
+          </div>`;
+      };
+
+      // Monthly breakdown
+      const byMonthGroup = {};
+      txs.forEach(t => {
+        const m   = t.date.slice(0, 7);
+        const gid = txClass.get(t); if (!gid) return;
+        if (!byMonthGroup[m]) byMonthGroup[m] = {};
+        byMonthGroup[m][gid] = (byMonthGroup[m][gid] || 0) + (t.type === "expense" ? t.debit : t.credit);
+      });
+      const months       = Object.keys(byMonthGroup).sort();
+      const activeGroups = GRUPOS.filter(g => agg[g.id].total > 0);
+
+      const tableRows = months.map(m => {
+        const row  = byMonthGroup[m];
+        const mIn  = entradas.reduce((s, g) => s + (row[g.id] || 0), 0);
+        const mOut = saidas.reduce((s, g)   => s + (row[g.id] || 0), 0);
+        const mNet = mIn - mOut;
+        return `<tr class="border-t border-slate-800 hover:bg-slate-800/20">
+          <td class="px-4 py-2 not-num text-slate-300 whitespace-nowrap text-xs">${monthName(m)}</td>
+          ${activeGroups.map(g => {
+            const v   = row[g.id] || 0;
+            const cls = v === 0 ? "text-slate-700" : g.tipo === "entrada" ? "text-emerald-400" : "text-rose-400";
+            return `<td class="px-4 py-2 text-right num text-xs ${cls}">${v > 0 ? fmt(v) : "—"}</td>`;
+          }).join("")}
+          <td class="px-4 py-2 text-right num text-xs font-semibold ${mNet >= 0 ? "text-emerald-400" : "text-rose-400"}">${fmt(mNet)}</td>
+        </tr>`;
+      }).join("");
+
+      el.innerHTML = `
+        <!-- KPIs -->
+        <div class="grid grid-cols-3 gap-4">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <div class="text-xs uppercase tracking-wider text-slate-400 mb-1">Total Entradas</div>
+            <div class="num text-2xl font-semibold text-emerald-400">${fmt(totalIn)}</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <div class="text-xs uppercase tracking-wider text-slate-400 mb-1">Total Saídas</div>
+            <div class="num text-2xl font-semibold text-rose-400">${fmt(totalOut)}</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <div class="text-xs uppercase tracking-wider text-slate-400 mb-1">Resultado</div>
+            <div class="num text-2xl font-semibold ${netCls}">${fmt(net)}</div>
+            <div class="text-xs text-slate-500 mt-1">Entradas − Saídas</div>
+          </div>
+        </div>
+
+        <!-- Groups side-by-side -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-sm font-semibold text-slate-300">Entradas</h2>
+              <span class="num text-sm font-semibold text-emerald-400">${fmt(totalIn)}</span>
+            </div>
+            ${entradas.map(groupRow).join("") || '<p class="text-slate-500 text-sm py-4 text-center">Sem entradas no período</p>'}
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-sm font-semibold text-slate-300">Saídas</h2>
+              <span class="num text-sm font-semibold text-rose-400">${fmt(totalOut)}</span>
+            </div>
+            ${saidas.map(groupRow).join("") || '<p class="text-slate-500 text-sm py-4 text-center">Sem saídas no período</p>'}
+          </div>
+        </div>
+
+        <!-- Monthly breakdown -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div class="px-5 py-4 border-b border-slate-800">
+            <h2 class="text-sm font-semibold text-slate-300">Breakdown Mensal por Grupo</h2>
+          </div>
+          <div class="overflow-x-auto scroll-thin">
+            <table class="w-full text-sm num">
+              <thead class="bg-slate-950 text-[10px] uppercase tracking-wider">
+                <tr>
+                  <th class="px-4 py-3 text-left not-num text-slate-400">Mês</th>
+                  ${activeGroups.map(g =>
+                    `<th class="px-4 py-3 text-right font-medium" style="color:${g.cor}">${g.label}</th>`
+                  ).join("")}
+                  <th class="px-4 py-3 text-right text-slate-400">NET</th>
+                </tr>
+              </thead>
+              <tbody>${tableRows}</tbody>
+              <tfoot class="border-t-2 border-slate-700 bg-slate-950">
+                <tr class="font-semibold">
+                  <td class="px-4 py-3 not-num text-slate-200 text-xs">Total (${months.length} ${months.length === 1 ? "mês" : "meses"})</td>
+                  ${activeGroups.map(g => {
+                    const v   = agg[g.id].total;
+                    const cls = g.tipo === "entrada" ? "text-emerald-300" : "text-rose-300";
+                    return `<td class="px-4 py-3 text-right num text-xs ${cls}">${fmt(v)}</td>`;
+                  }).join("")}
+                  <td class="px-4 py-3 text-right num text-xs ${netCls}">${fmt(net)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>`;
+    }
+
+    // Close all panels when clicking outside
+    document.addEventListener("click", e => {
+      if (!document.getElementById("month-picker-wrap").contains(e.target)) closePicker();
+      if (!document.getElementById("account-picker-wrap").contains(e.target)) closeAccountPanel();
+    });
+
+    // ============================================================
+    // PTAX — Banco Central do Brasil
+    // ============================================================
+    const ptaxCache = {};
+
+    async function fetchPTAX(dateISO) {
+      // Returns { rate, date } using cotacaoVenda; backs up up to 5 days for weekends/holidays
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(dateISO + "T12:00:00");
+        d.setDate(d.getDate() - i);
+        const iso = d.toISOString().slice(0, 10);
+        if (iso in ptaxCache) {
+          if (ptaxCache[iso] != null) return { rate: ptaxCache[iso], date: iso };
+          continue;
+        }
+        const [y, m, dd] = iso.split("-");
+        try {
+          const url = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@d)?@d=%27${m}-${dd}-${y}%27&%24format=json&%24select=cotacaoVenda`;
+          const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+          const data = await res.json();
+          const rate = data.value?.at(-1)?.cotacaoVenda ?? null;
+          ptaxCache[iso] = rate;
+          if (rate) return { rate, date: iso };
+        } catch { ptaxCache[iso] = null; }
+      }
+      return null;
+    }
+
+    async function fetchPeriodPTAX(startISO, endISO) {
+      // Fetches all PTAX rates for a date range, caches them
+      const [ys, ms, ds] = startISO.split("-");
+      const [ye, me, de] = endISO.split("-");
+      try {
+        const url = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@i,dataFinalCotacao=@f)?@i=%27${ms}-${ds}-${ys}%27&@f=%27${me}-${de}-${ye}%27&%24format=json&%24select=cotacaoVenda,dataHoraCotacao`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        const data = await res.json();
+        (data.value || []).forEach(v => {
+          const iso = v.dataHoraCotacao?.slice(0, 10);
+          if (iso && v.cotacaoVenda) ptaxCache[iso] = v.cotacaoVenda;
+        });
+      } catch {}
+    }
+
+    const fmtBRL = n => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
+    const fmtBRLK = n => {
+      const abs = Math.abs(n);
+      if (abs >= 1e6) return (n < 0 ? "-" : "") + "R$ " + (abs / 1e6).toFixed(2).replace(".", ",") + "M";
+      if (abs >= 1e3) return (n < 0 ? "-" : "") + "R$ " + (abs / 1e3).toFixed(1).replace(".", ",") + "k";
+      return fmtBRL(n);
+    };
+
+    // ============================================================
+    // Declaração IR
+    // ============================================================
+    async function renderIRSection() {
+      const allTxs = [];
+      state.accounts.forEach(a => a.transactions.forEach(t => allTxs.push({ ...t, _accId: a.id, _accName: a.name })));
+      const section = document.getElementById("ir-section");
+      const el = document.getElementById("ir-content");
+      if (!allTxs.length) { section.classList.add("hidden"); return; }
+      section.classList.remove("hidden");
+      el.innerHTML = '<div class="px-5 py-8 text-slate-500 text-sm flex items-center gap-2"><svg class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Buscando PTAX do Banco Central...</div>';
+
+      // Group by fiscal year
+      const byYear = {};
+      allTxs.forEach(t => {
+        const y = t.date.slice(0, 4);
+        if (!byYear[y]) byYear[y] = { income: 0, expense: 0, refund: 0, txs: [] };
+        const yr = byYear[y];
+        if (t.type === "income")        yr.income  += t.credit;
+        else if (t.type === "expense")  yr.expense += t.debit;
+        else if (t.type === "refund")   yr.refund  += t.credit;
+        yr.txs.push(t);
+      });
+
+      const years = Object.keys(byYear).sort().reverse();
+
+      // Pre-fetch PTAX for all year ranges (batched)
+      for (const y of years) {
+        await fetchPeriodPTAX(`${y}-01-01`, `${y}-12-31`).catch(() => {});
+      }
+
+      // Fetch year-end rate (31/12) for each year
+      const ptaxByYear = {};
+      await Promise.all(years.map(async y => {
+        const today = new Date().toISOString().slice(0, 10);
+        const targetDate = `${y}-12-31` <= today ? `${y}-12-31` : today;
+        ptaxByYear[y] = await fetchPTAX(targetDate);
+      }));
+
+      const html = years.map(y => {
+        const { income, expense, refund, txs } = byYear[y];
+        const netExp   = expense - refund;
+        const net      = income - netExp;
+        const margin   = income > 0 ? (net / income * 100) : null;
+        const pt       = ptaxByYear[y];
+        const ptaxRate = pt?.rate ?? null;
+        const ptaxDateBR = pt?.date ? dateBR(pt.date) : "—";
+        const isCurrentYear = y === String(new Date().getFullYear());
+
+        // Top income sources
+        const sources = {};
+        txs.filter(t => t.type === "income").forEach(t => {
+          const k = t.merchant || t.subcategory || "Outros";
+          sources[k] = (sources[k] || 0) + t.credit;
+        });
+        const topSources = Object.entries(sources).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+        // Fiscal categories
+        const byFiscalCat = { "Faturamento LLP": 0, "Despesa Operacional": 0, "Estornos / Cashback": 0 };
+        txs.forEach(t => {
+          if (t.type === "income")       byFiscalCat["Faturamento LLP"]        += t.credit;
+          else if (t.type === "expense") byFiscalCat["Despesa Operacional"]    += t.debit;
+          else if (t.type === "refund")  byFiscalCat["Estornos / Cashback"]    += t.credit;
+        });
+
+        // Expense breakdown by category
+        const expByCat = {};
+        txs.filter(t => t.type === "expense" || t.type === "refund").forEach(t => {
+          const k = t.category || "Outros";
+          expByCat[k] = (expByCat[k] || 0) + (t.type === "expense" ? t.debit : -t.credit);
+        });
+        const topExpCat = Object.entries(expByCat).filter(([,v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+        // Year-end saldo per account
+        const accRows = state.accounts.map(acc => {
+          const accTxsYear = acc.transactions.filter(t => t.date.slice(0, 4) === y);
+          if (!accTxsYear.length) return null;
+          const sorted = [...accTxsYear].sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
+          let saldo = null;
+          const lastWithBal = sorted.find(t => t.runningBalance > 0);
+          if (lastWithBal) {
+            saldo = lastWithBal.runningBalance;
+          } else {
+            let cum = 0;
+            acc.transactions.filter(t => t.date <= `${y}-12-31`).forEach(t => {
+              if (t.type === "income")       cum += t.credit;
+              else if (t.type === "expense") cum -= t.debit;
+              else if (t.type === "refund")  cum += t.credit;
+            });
+            saldo = cum;
+          }
+          return { name: acc.name, saldo, saldoBRL: ptaxRate ? saldo * ptaxRate : null };
+        }).filter(Boolean);
+
+        const totalSaldo    = accRows.reduce((s, r) => s + r.saldo, 0);
+        const totalSaldoBRL = ptaxRate ? totalSaldo * ptaxRate : null;
+
+        const netCls  = net  >= 0 ? "text-emerald-400" : "text-rose-400";
+        const netClsL = net  >= 0 ? "text-emerald-300" : "text-rose-300";
+
+        const ptaxBadge = ptaxRate
+          ? `<span class="text-xs text-slate-400 not-num">PTAX ${isCurrentYear ? "(hoje)" : "31/12"}: <span class="text-slate-200 font-semibold num">${ptaxRate.toFixed(4).replace(".", ",")}</span> <span class="text-slate-500">${ptaxDateBR}</span></span>`
+          : `<span class="text-xs text-amber-400">PTAX indisponível — verifique conexão</span>`;
+
+        const brlCol = ptaxRate ? `<th class="py-2 text-right font-normal w-36 not-num">BRL</th>` : "";
+        const brlCell = (usdVal, cls) => ptaxRate
+          ? `<td class="py-2 text-right ${cls}">${fmtBRLK(usdVal * ptaxRate)}</td>`
+          : "";
+
+        return `
+          <div class="border-b border-slate-800 last:border-b-0">
+            <!-- Year header -->
+            <div class="px-5 py-3.5 flex items-center justify-between bg-slate-800/20 flex-wrap gap-2">
+              <div class="flex items-center gap-3 flex-wrap">
+                <span class="text-base font-bold text-slate-100">Exercício ${y}</span>
+                ${ptaxBadge}
+              </div>
+              <span class="num text-sm font-semibold ${netCls}">${ptaxRate ? fmtBRLK(net * ptaxRate) : fmt(net)}</span>
+            </div>
+
+            <div class="px-5 py-5 grid grid-cols-1 xl:grid-cols-3 gap-8">
+
+              <!-- DRE -->
+              <div class="xl:col-span-2 space-y-6">
+                <div>
+                  <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-3 font-semibold">DRE — Demonstrativo de Resultado do Exercício</div>
+                  <table class="w-full text-sm num">
+                    <thead>
+                      <tr class="text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+                        <th class="pb-2 text-left not-num font-normal">Linha</th>
+                        <th class="pb-2 text-right font-normal w-32">USD</th>
+                        ${brlCol}
+                        <th class="pb-2 text-right font-normal w-16">%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr class="border-b border-slate-800/50">
+                        <td class="py-2.5 text-slate-200 not-num font-medium">Receita Bruta (Faturamento)</td>
+                        <td class="py-2.5 text-right text-emerald-400">${fmt(income)}</td>
+                        ${brlCell(income, "text-emerald-400")}
+                        <td class="py-2.5 text-right text-slate-500">100%</td>
+                      </tr>
+                      <tr class="border-b border-slate-800/50">
+                        <td class="py-2 text-slate-400 not-num pl-4 text-[13px]">(-) Despesas Operacionais</td>
+                        <td class="py-2 text-right text-rose-400">${fmt(netExp)}</td>
+                        ${brlCell(netExp, "text-rose-400")}
+                        <td class="py-2 text-right text-slate-500 text-xs">${income > 0 ? (netExp/income*100).toFixed(1) + "%" : "—"}</td>
+                      </tr>
+                      ${refund > 0 ? `<tr class="border-b border-slate-800/30">
+                        <td class="py-1.5 text-slate-500 not-num pl-4 text-xs">(+) Estornos / Cashback</td>
+                        <td class="py-1.5 text-right text-amber-500 text-xs">${fmt(refund)}</td>
+                        ${ptaxRate ? `<td class="py-1.5 text-right text-amber-500 text-xs">${fmtBRLK(refund * ptaxRate)}</td>` : ""}
+                        <td></td>
+                      </tr>` : ""}
+                      <tr class="border-t-2 border-slate-700 font-bold">
+                        <td class="py-3 text-slate-100 not-num">= Resultado Líquido</td>
+                        <td class="py-3 text-right ${netClsL}">${fmt(net)}</td>
+                        ${brlCell(net, netClsL)}
+                        <td class="py-3 text-right ${netCls}">${margin !== null ? margin.toFixed(1) + "%" : "—"}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Top clientes -->
+                ${topSources.length ? `
+                <div>
+                  <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-3 font-semibold">Principais Fontes de Receita</div>
+                  <div class="space-y-2">
+                    ${topSources.map(([name, amt]) => {
+                      const pct = income > 0 ? amt / income * 100 : 0;
+                      return `<div class="flex items-center gap-3 text-sm">
+                        <div class="flex-1 truncate text-slate-300">${name}</div>
+                        <div class="num text-emerald-400 w-24 text-right shrink-0">${fmt(amt)}</div>
+                        <div class="text-slate-500 w-10 text-right text-xs shrink-0">${pct.toFixed(0)}%</div>
+                        <div class="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden shrink-0">
+                          <div class="h-full bg-emerald-600 rounded-full" style="width:${pct.toFixed(1)}%"></div>
+                        </div>
+                      </div>`;
+                    }).join("")}
+                  </div>
+                </div>` : ""}
+
+                <!-- Despesas por categoria -->
+                ${topExpCat.length ? `
+                <div>
+                  <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-3 font-semibold">Despesas por Categoria</div>
+                  <div class="space-y-2">
+                    ${topExpCat.map(([name, amt]) => {
+                      const pct = netExp > 0 ? amt / netExp * 100 : 0;
+                      return `<div class="flex items-center gap-3 text-sm">
+                        <div class="flex-1 truncate text-slate-300">${name}</div>
+                        <div class="num text-rose-400 w-24 text-right shrink-0">${fmt(amt)}</div>
+                        <div class="text-slate-500 w-10 text-right text-xs shrink-0">${pct.toFixed(0)}%</div>
+                        <div class="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden shrink-0">
+                          <div class="h-full bg-rose-700 rounded-full" style="width:${pct.toFixed(1)}%"></div>
+                        </div>
+                      </div>`;
+                    }).join("")}
+                  </div>
+                </div>` : ""}
+              </div>
+
+              <!-- Bens e Direitos -->
+              <div>
+                <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-3 font-semibold">Bens e Direitos — Saldo em ${isCurrentYear ? "Hoje" : "31/12/" + y}</div>
+                <div class="space-y-2 mb-4">
+                  ${accRows.map(r => `
+                    <div class="bg-slate-800/40 border border-slate-800 rounded-lg px-3 py-2.5">
+                      <div class="text-xs text-slate-400 mb-1">${r.name}</div>
+                      <div class="num font-semibold text-slate-200 text-sm">${fmt(r.saldo)}</div>
+                      ${r.saldoBRL != null ? `<div class="num text-xs text-slate-400 mt-0.5">${fmtBRL(r.saldoBRL)}</div>` : ""}
+                    </div>`).join("")}
+                  ${accRows.length > 1 ? `
+                    <div class="border-t border-slate-700 pt-2.5 flex justify-between items-end">
+                      <span class="text-xs font-semibold text-slate-400">Total LLP</span>
+                      <div class="text-right">
+                        <div class="num font-bold text-slate-200">${fmt(totalSaldo)}</div>
+                        ${totalSaldoBRL != null ? `<div class="num text-xs text-slate-400">${fmtBRL(totalSaldoBRL)}</div>` : ""}
+                      </div>
+                    </div>` : ""}
+                </div>
+
+                ${ptaxRate && totalSaldoBRL != null ? `
+                <div class="p-3.5 bg-blue-500/10 border border-blue-500/20 rounded-xl space-y-2">
+                  <div class="text-xs text-blue-300 font-semibold">IRPF — Como declarar</div>
+                  <div class="text-xs text-slate-300 leading-relaxed">
+                    Em <strong>Bens e Direitos</strong>, declare o saldo
+                    <span class="num font-semibold text-slate-100">${fmtBRL(totalSaldoBRL)}</span>
+                    usando o código <strong>Grupo 06 / Código 01</strong> (Depósito bancário no exterior)
+                    ou <strong>Grupo 07</strong> se a LLP for participação societária.
+                  </div>
+                  <div class="text-xs text-slate-400">Taxa utilizada: PTAX venda ${ptaxRate.toFixed(4).replace(".",",")} em ${ptaxDateBR}</div>
+                </div>` : !ptaxRate ? `
+                <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300">
+                  PTAX não carregada. Verifique sua conexão e recarregue a página.
+                </div>` : ""}
+              </div>
+
+            </div>
+          </div>`;
+      }).join("");
+
+      el.innerHTML = html || '<div class="px-5 py-8 text-slate-500 text-sm">Nenhum dado disponível</div>';
+    }
+
+    // ============================================================
+    // Export
+    // ============================================================
+    async function exportIRCSV() {
+      const btn = document.getElementById("btn-export-csv");
+      btn.textContent = "Gerando...";
+      btn.disabled = true;
+      try {
+        const allTxs = [];
+        state.accounts.forEach(a => a.transactions.forEach(t => allTxs.push({ ...t, _accName: a.name })));
+        if (!allTxs.length) { alert("Nenhuma transação para exportar."); return; }
+
+        const byYear = {};
+        allTxs.forEach(t => {
+          const y = t.date.slice(0, 4);
+          if (!byYear[y]) byYear[y] = { income: 0, expense: 0, refund: 0 };
+          if (t.type === "income")       byYear[y].income  += t.credit;
+          else if (t.type === "expense") byYear[y].expense += t.debit;
+          else if (t.type === "refund")  byYear[y].refund  += t.credit;
+        });
+        const years = Object.keys(byYear).sort();
+
+        const ptaxByYear = {};
+        for (const y of years) {
+          const today = new Date().toISOString().slice(0, 10);
+          const target = `${y}-12-31` <= today ? `${y}-12-31` : today;
+          ptaxByYear[y] = await fetchPTAX(target);
+        }
+
+        const rows = [
+          ["Exercício","Receita USD","Despesa USD","Estorno USD","Resultado USD","Margem (%)","PTAX Data","PTAX Venda","Receita BRL","Despesa BRL","Resultado BRL"]
+        ];
+        years.forEach(y => {
+          const { income, expense, refund } = byYear[y];
+          const netExp = expense - refund;
+          const net    = income - netExp;
+          const margin = income > 0 ? (net / income * 100).toFixed(2) : "";
+          const pt     = ptaxByYear[y];
+          rows.push([
+            y,
+            income.toFixed(2), netExp.toFixed(2), refund.toFixed(2), net.toFixed(2), margin,
+            pt?.date || "", pt ? pt.rate.toFixed(4) : "",
+            pt ? (income  * pt.rate).toFixed(2) : "",
+            pt ? (netExp  * pt.rate).toFixed(2) : "",
+            pt ? (net     * pt.rate).toFixed(2) : "",
+          ]);
+        });
+
+        // Transactions detail sheet
+        const txRows = [["Data","Conta","Tipo","Descrição","Merchant","Categoria","Crédito USD","Débito USD","PTAX","Crédito BRL","Débito BRL"]];
+        const sortedTxs = [...allTxs].sort((a, b) => a.date.localeCompare(b.date));
+        sortedTxs.forEach(t => {
+          const y = t.date.slice(0, 4);
+          const pt = ptaxByYear[y];
+          const ptRate = pt?.rate || "";
+          txRows.push([
+            t.date, t._accName || "", t.type,
+            t.description?.replace(/"/g, "'") || "",
+            t.merchant?.replace(/"/g, "'") || "",
+            t.category || "",
+            t.credit.toFixed(2), t.debit.toFixed(2),
+            ptRate ? ptRate.toFixed(4) : "",
+            ptRate ? (t.credit * ptRate).toFixed(2) : "",
+            ptRate ? (t.debit  * ptRate).toFixed(2) : "",
+          ]);
+        });
+
+        const toCSV = rows => rows.map(r => r.map(v => `"${v}"`).join(";")).join("\r\n");
+        const content = "RESUMO ANUAL\r\n" + toCSV(rows) + "\r\n\r\nTRANSAÇÕES DETALHADAS\r\n" + toCSV(txRows);
+        const blob = new Blob(["﻿" + content], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = `balanco_llp_ir_${new Date().getFullYear()}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } finally {
+        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar CSV`;
+        btn.disabled = false;
+      }
+    }
+
+    // ============================================================
+    // BRL KPI update (async, called after render)
+    // ============================================================
+    async function updateKPIsBRL(income, netExpense, net) {
+      const today = new Date().toISOString().slice(0, 10);
+      const pt = await fetchPTAX(today);
+      if (!pt) return;
+      const r = pt.rate;
+      const kpiIncomeBRL  = document.getElementById("kpi-income-brl");
+      const kpiExpenseBRL = document.getElementById("kpi-expense-brl");
+      const kpiNetBRL     = document.getElementById("kpi-net-brl");
+      if (kpiIncomeBRL)  kpiIncomeBRL.textContent  = fmtBRLK(income     * r);
+      if (kpiExpenseBRL) kpiExpenseBRL.textContent  = fmtBRLK(netExpense * r);
+      if (kpiNetBRL) {
+        kpiNetBRL.textContent  = fmtBRLK(net * r);
+        kpiNetBRL.className = "num text-xs mt-0.5 h-4 " + (net >= 0 ? "text-emerald-700" : "text-rose-800");
+      }
+    }
+
+    const adapterScript = document.createElement("script");
+    adapterScript.src = "https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js";
+    adapterScript.onload = () => refreshAll().catch(console.error);
+    document.head.appendChild(adapterScript);
+  </script>
+</body>
+</html>

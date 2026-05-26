@@ -8,22 +8,153 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="data.js"></script>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif; }
-    .num { font-variant-numeric: tabular-nums; }
+    /* ── Design tokens ──────────────────────────────────────── */
+    :root {
+      --bg-0: #020617;        /* slate-950 — background base */
+      --bg-1: #0f172a;        /* slate-900 — surface */
+      --bg-2: #1e293b;        /* slate-800 — surface elevated */
+      --bg-3: #334155;        /* slate-700 — surface high */
+      --text-1: #f1f5f9;      /* slate-100 — primary */
+      --text-2: #cbd5e1;      /* slate-300 — secondary */
+      --text-3: #94a3b8;      /* slate-400 — tertiary */
+      --text-4: #64748b;      /* slate-500 — quaternary */
+      --border-1: #1e293b;    /* slate-800 */
+      --border-2: #334155;    /* slate-700 */
+      --accent: #10b981;      /* emerald-500 — accent / success */
+      --accent-soft: #064e3b; /* emerald-900 */
+      --success: #10b981;
+      --danger: #f43f5e;      /* rose-500 */
+      --warning: #f59e0b;     /* amber-500 */
+      --info: #3b82f6;        /* blue-500 */
+      --radius-sm: 6px;
+      --radius: 10px;
+      --radius-lg: 14px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+      --shadow: 0 4px 12px rgba(0,0,0,0.4);
+      --shadow-lg: 0 12px 32px rgba(0,0,0,0.5);
+      --transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+
+    /* ── Number formatting ──────────────────────────────────── */
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+    .num-positive { color: #34d399; }      /* emerald-400 */
+    .num-negative { color: #fb7185; }      /* rose-400 */
+    .num-neutral  { color: var(--text-2); }
+
+    /* ── Typography helpers ─────────────────────────────────── */
+    .t-display { font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; }
+    .t-h1      { font-size: 22px; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; }
+    .t-h2      { font-size: 17px; line-height: 1.3; font-weight: 600; letter-spacing: -0.005em; }
+    .t-body    { font-size: 14px; line-height: 1.5; }
+    .t-small   { font-size: 12.5px; line-height: 1.45; }
+    .t-caption { font-size: 11px; line-height: 1.4; color: var(--text-4); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600; }
+
+    /* ── Surfaces ───────────────────────────────────────────── */
+    .surface {
+      background: var(--bg-1);
+      border: 1px solid var(--border-1);
+      border-radius: var(--radius-lg);
+      transition: border-color var(--transition);
+    }
+    .surface-elevated {
+      background: var(--bg-1);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+    }
+    .surface-hover:hover { border-color: var(--bg-3); box-shadow: var(--shadow-sm); }
+
+    /* ── Scrollbar ──────────────────────────────────────────── */
     .scroll-thin::-webkit-scrollbar { width: 6px; height: 6px; }
     .scroll-thin::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    .scroll-thin::-webkit-scrollbar-thumb:hover { background: #475569; }
     .scroll-thin::-webkit-scrollbar-track { background: transparent; }
+
+    /* ── Period chips ───────────────────────────────────────── */
+    .period-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 10px; border-radius: var(--radius);
+      font-size: 12.5px; font-weight: 500;
+      color: var(--text-3); background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer; user-select: none;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .period-chip:hover { color: var(--text-1); background: var(--bg-2); }
+    .period-chip.active {
+      color: var(--text-1); background: var(--bg-2);
+      border-color: var(--border-2); box-shadow: var(--shadow-sm);
+    }
+
+    /* ── Currency toggle ────────────────────────────────────── */
+    .ccy-toggle {
+      position: relative; display: inline-flex;
+      background: var(--bg-2); border: 1px solid var(--border-2);
+      border-radius: 999px; padding: 3px; gap: 0;
+      user-select: none;
+    }
+    .ccy-toggle button {
+      position: relative; z-index: 2;
+      padding: 4px 14px; border-radius: 999px;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+      color: var(--text-3); background: transparent; border: 0;
+      cursor: pointer; transition: color var(--transition);
+    }
+    .ccy-toggle button.active { color: var(--text-1); }
+    .ccy-toggle .ccy-pill {
+      position: absolute; top: 3px; bottom: 3px; left: 3px;
+      width: calc(50% - 3px);
+      background: var(--bg-3);
+      border-radius: 999px;
+      transition: transform var(--transition);
+      z-index: 1;
+    }
+    .ccy-toggle.is-brl .ccy-pill { transform: translateX(100%); }
+
+    /* ── Sidebar nav buttons ────────────────────────────────── */
+    .nav-btn {
+      width: 100%; display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; border-radius: var(--radius);
+      font-size: 13px; font-weight: 500; text-align: left;
+      color: var(--text-3); background: transparent; border: 0;
+      cursor: pointer; transition: all var(--transition);
+      line-height: 1.3;
+    }
+    .nav-btn:hover { color: var(--text-1); background: rgba(30, 41, 59, 0.5); }
+    .nav-btn.active {
+      color: var(--text-1); background: var(--bg-2);
+      box-shadow: var(--shadow-sm);
+    }
+    .nav-btn svg { color: var(--text-4); transition: color var(--transition); }
+    .nav-btn:hover svg, .nav-btn.active svg { color: var(--accent); }
+
+    /* ── Animations ─────────────────────────────────────────── */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .animate-fade-in { animation: fadeIn 220ms ease-out; }
+
+    /* ── Buttons (subtle elevation + active) ────────────────── */
+    button { transition: all var(--transition); }
+    button:active:not(:disabled) { transform: scale(0.97); }
+
+    /* ── Print ──────────────────────────────────────────────── */
     @media print {
       header, #tx-search, .no-print { display: none !important; }
       body { background: #fff !important; color: #111 !important; }
       main { padding: 0 !important; }
       section { page-break-inside: avoid; border: 1px solid #e5e7eb !important; background: #fff !important; }
       .bg-slate-900,.bg-slate-950,.bg-slate-800\/30,.bg-slate-800\/40 { background: #fff !important; }
+      .surface, .surface-elevated { background: #fff !important; border-color: #e5e7eb !important; }
       .border-slate-800,.border-slate-700 { border-color: #e5e7eb !important; }
       .text-slate-100,.text-slate-200,.text-slate-300 { color: #111 !important; }
       .text-slate-400,.text-slate-500,.text-slate-600 { color: #6b7280 !important; }
-      .text-emerald-400,.text-emerald-300,.text-emerald-200 { color: #059669 !important; }
-      .text-rose-400,.text-rose-300 { color: #dc2626 !important; }
+      .text-emerald-400,.text-emerald-300,.text-emerald-200,.num-positive { color: #059669 !important; }
+      .text-rose-400,.text-rose-300,.num-negative { color: #dc2626 !important; }
       .text-blue-300 { color: #1d4ed8 !important; }
       #tx-table-section, #imports-section { display: none !important; }
     }
@@ -34,12 +165,20 @@
   <!-- Header -->
   <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-20">
     <div class="max-w-7xl mx-auto px-6">
-      <!-- Row 1: title + actions -->
-      <div class="flex items-center justify-between py-3">
-        <div>
-          <h1 class="text-xl font-semibold tracking-tight">Balanço Anual</h1>
-          <p class="text-xs text-slate-400" id="header-sub">Carregando...</p>
+      <!-- Row 1: title + currency + actions -->
+      <div class="flex items-center justify-between py-3 gap-4">
+        <div class="min-w-0">
+          <h1 class="t-h1">Balanço Anual</h1>
+          <p class="t-small text-slate-400 truncate" id="header-sub">Carregando...</p>
         </div>
+
+        <!-- Currency toggle -->
+        <div id="ccy-toggle" class="ccy-toggle" role="group" aria-label="Moeda">
+          <span class="ccy-pill"></span>
+          <button type="button" data-ccy="USD" class="active" onclick="setCurrency('USD')">USD</button>
+          <button type="button" data-ccy="BRL" onclick="setCurrency('BRL')">BRL</button>
+        </div>
+
         <div class="flex items-center gap-4">
           <label for="csv-input"
                  class="cursor-pointer inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition select-none">
@@ -52,16 +191,28 @@
           </label>
           <input id="csv-input" type="file" accept=".csv" multiple class="hidden" />
           <div class="text-right">
-            <div class="text-xs text-slate-400 uppercase tracking-wider">Saldo Atual</div>
+            <div class="t-caption text-slate-400">Saldo Atual</div>
             <div class="num text-2xl font-semibold text-emerald-400" id="header-balance">—</div>
           </div>
         </div>
       </div>
 
-      <!-- Row 2: filters -->
-      <div class="flex flex-wrap gap-2 items-center pb-3 border-t border-slate-800/70 pt-2.5">
-        <button id="btn-this-year" class="text-xs px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-500 bg-slate-800 text-slate-300 hover:text-white transition select-none">Este ano</button>
-        <button id="btn-last-year" class="text-xs px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-500 bg-slate-800 text-slate-300 hover:text-white transition select-none">Ano passado</button>
+      <!-- Row 2: period chips + filters -->
+      <div class="flex flex-wrap gap-1 items-center pb-3 border-t border-slate-800/70 pt-2.5">
+        <!-- Period chips -->
+        <div id="period-chips" class="flex items-center gap-0.5 mr-2">
+          <button class="period-chip" data-preset="current">Mês atual</button>
+          <button class="period-chip" data-preset="last">Mês passado</button>
+          <button class="period-chip" data-preset="quarter">Trimestre</button>
+          <button class="period-chip" data-preset="semester">Semestre</button>
+          <button class="period-chip" data-preset="year">Este ano</button>
+          <button class="period-chip" data-preset="lastYear">Ano passado</button>
+          <button class="period-chip" data-preset="all">Tudo</button>
+        </div>
+
+        <!-- Hidden legacy buttons retained for compatibility (logic still references them) -->
+        <button id="btn-this-year" class="hidden">Este ano</button>
+        <button id="btn-last-year" class="hidden">Ano passado</button>
 
         <!-- Month range picker -->
         <div class="relative" id="month-picker-wrap">
@@ -116,32 +267,99 @@
 
     <!-- ── Sidebar ────────────────────────────────────────── -->
     <aside id="sidebar"
-           class="w-52 shrink-0 bg-slate-900 border-r border-slate-800 sticky overflow-y-auto z-10 no-print">
-      <nav class="p-3 pt-5">
-        <p class="px-2 mb-3 text-[10px] uppercase tracking-widest text-slate-600 font-semibold">Navegação</p>
-        <div class="space-y-0.5">
+           class="w-56 shrink-0 bg-slate-900 border-r border-slate-800 sticky overflow-y-auto z-10 no-print">
+      <nav class="p-3 pt-5 pb-8 space-y-5" id="sidebar-nav">
 
-          <button id="nav-home" onclick="switchView('home')"
-            class="nav-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-left transition-colors bg-slate-800 text-white">
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
-              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-              <polyline points="9 22 9 12 15 12 15 22"/>
-            </svg>
-            <span>Home</span>
-          </button>
-
-          <button id="nav-resumo" onclick="switchView('resumo')"
-            class="nav-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-left transition-colors text-slate-400 hover:text-white hover:bg-slate-800/50">
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
-              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-              <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-            </svg>
-            <span class="leading-tight">Resumo de Entradas e Saídas</span>
-          </button>
-
+        <!-- Visão geral -->
+        <div>
+          <p class="px-2 mb-2 text-[10px] uppercase tracking-widest text-slate-600 font-semibold">Visão geral</p>
+          <div class="space-y-0.5">
+            <button id="nav-home" onclick="switchView('home')" class="nav-btn active">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+              <span>Home</span>
+            </button>
+            <button id="nav-saude" onclick="switchView('saude')" class="nav-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+              </svg>
+              <span>Saúde Financeira</span>
+            </button>
+            <button id="nav-caixa" onclick="switchView('caixa')" class="nav-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <rect x="2" y="6" width="20" height="12" rx="2"/>
+                <circle cx="12" cy="12" r="2"/>
+                <path d="M6 12h.01M18 12h.01"/>
+              </svg>
+              <span>Controle de Caixa</span>
+            </button>
+          </div>
         </div>
+
+        <!-- Análise -->
+        <div>
+          <p class="px-2 mb-2 text-[10px] uppercase tracking-widest text-slate-600 font-semibold">Análise</p>
+          <div class="space-y-0.5">
+            <button id="nav-resumo" onclick="switchView('resumo')" class="nav-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+              </svg>
+              <span class="leading-tight">Entradas & Saídas</span>
+            </button>
+            <button id="nav-assinaturas" onclick="switchView('assinaturas')" class="nav-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 3 21 9 15 9"/>
+              </svg>
+              <span>Assinaturas</span>
+            </button>
+            <button id="nav-transacoes" onclick="switchView('transacoes')" class="nav-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+                <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+                <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+              </svg>
+              <span>Transações</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Contas -->
+        <div>
+          <p class="px-2 mb-2 text-[10px] uppercase tracking-widest text-slate-600 font-semibold">Contas</p>
+          <div class="space-y-0.5" id="sidebar-accounts"></div>
+        </div>
+
+        <!-- Fiscal -->
+        <div>
+          <p class="px-2 mb-2 text-[10px] uppercase tracking-widest text-slate-600 font-semibold">Fiscal</p>
+          <div class="space-y-0.5">
+            <button id="nav-dr" onclick="switchView('dr')" class="nav-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>
+              </svg>
+              <span>DR Mensal</span>
+            </button>
+            <button id="nav-ir" onclick="switchView('ir')" class="nav-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>
+              </svg>
+              <span>Imposto de Renda</span>
+            </button>
+            <button id="nav-importacoes" onclick="switchView('importacoes')" class="nav-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span>Importações</span>
+            </button>
+          </div>
+        </div>
+
       </nav>
     </aside>
 
@@ -154,30 +372,40 @@
 
     <!-- KPI Cards -->
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-        <div class="text-xs uppercase tracking-wider text-slate-400 mb-1">Receita</div>
-        <div class="num text-2xl font-semibold text-emerald-400" id="kpi-income">$0.00</div>
+      <div class="surface surface-hover p-5">
+        <div class="flex items-start justify-between gap-2">
+          <div class="t-caption">Receita</div>
+          <span id="kpi-income-delta" class="num text-[11px] font-semibold px-1.5 py-0.5 rounded-md hidden"></span>
+        </div>
+        <div class="num text-2xl font-semibold text-emerald-400 mt-1" id="kpi-income">$0.00</div>
         <div class="num text-xs text-emerald-700 mt-0.5 h-4" id="kpi-income-brl"></div>
-        <div class="text-xs text-slate-500 mt-1" id="kpi-income-count"></div>
+        <div class="t-small text-slate-500 mt-1" id="kpi-income-count"></div>
       </div>
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-        <div class="text-xs uppercase tracking-wider text-slate-400 mb-1">Despesa Líquida</div>
-        <div class="num text-2xl font-semibold text-rose-400" id="kpi-expense">$0.00</div>
+      <div class="surface surface-hover p-5">
+        <div class="flex items-start justify-between gap-2">
+          <div class="t-caption">Despesa Líquida</div>
+          <span id="kpi-expense-delta" class="num text-[11px] font-semibold px-1.5 py-0.5 rounded-md hidden"></span>
+        </div>
+        <div class="num text-2xl font-semibold text-rose-400 mt-1" id="kpi-expense">$0.00</div>
         <div class="num text-xs text-rose-800 mt-0.5 h-4" id="kpi-expense-brl"></div>
-        <div class="text-xs text-slate-500 mt-1" id="kpi-expense-count"></div>
+        <div class="t-small text-slate-500 mt-1" id="kpi-expense-count"></div>
       </div>
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-        <div class="text-xs uppercase tracking-wider text-slate-400 mb-1">Resultado</div>
-        <div class="num text-2xl font-semibold" id="kpi-net">$0.00</div>
+      <div class="surface surface-hover p-5">
+        <div class="flex items-start justify-between gap-2">
+          <div class="t-caption">Resultado</div>
+          <span id="kpi-net-delta" class="num text-[11px] font-semibold px-1.5 py-0.5 rounded-md hidden"></span>
+        </div>
+        <div class="num text-2xl font-semibold mt-1" id="kpi-net">$0.00</div>
         <div class="num text-xs text-slate-500 mt-0.5 h-4" id="kpi-net-brl"></div>
-        <div class="text-xs text-slate-500 mt-1">Receita − Despesa</div>
+        <div class="t-small text-slate-500 mt-1">Receita − Despesa</div>
       </div>
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-        <div class="text-xs uppercase tracking-wider text-slate-400 mb-1">Maior Categoria</div>
-        <div class="text-lg font-semibold truncate" id="kpi-topcat">—</div>
-        <div class="num text-xs text-slate-500 mt-1" id="kpi-topcat-amount"></div>
+      <div class="surface surface-hover p-5">
+        <div class="t-caption">Maior Categoria</div>
+        <div class="text-lg font-semibold truncate mt-1" id="kpi-topcat">—</div>
+        <div class="num t-small text-slate-500 mt-1" id="kpi-topcat-amount"></div>
       </div>
     </section>
+
 
     <!-- Charts row -->
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -196,6 +424,42 @@
       <h2 class="text-sm font-semibold text-slate-300 mb-4">Evolução do Saldo</h2>
       <div style="height:240px"><canvas id="chart-balance"></canvas></div>
     </section>
+
+        </main>
+      </div><!-- /view-home -->
+
+      <!-- View: Saúde Financeira -->
+      <div id="view-saude" class="hidden">
+        <main class="max-w-7xl mx-auto px-6 py-8 space-y-6" id="saude-content"></main>
+      </div>
+
+      <!-- View: Controle de Caixa -->
+      <div id="view-caixa" class="hidden">
+        <main class="max-w-7xl mx-auto px-6 py-8 space-y-6" id="caixa-content"></main>
+      </div>
+
+      <!-- View: Assinaturas -->
+      <div id="view-assinaturas" class="hidden">
+        <main class="max-w-7xl mx-auto px-6 py-8 space-y-6" id="assinaturas-content"></main>
+      </div>
+
+      <!-- View: Conta (per-account dashboard) -->
+      <div id="view-conta" class="hidden">
+        <main class="max-w-7xl mx-auto px-6 py-8 space-y-6" id="conta-content"></main>
+      </div>
+
+      <!-- View: Empresa (merchant drill-down) -->
+      <div id="view-empresa" class="hidden">
+        <main class="max-w-7xl mx-auto px-6 py-8 space-y-6" id="empresa-content"></main>
+      </div>
+
+      <!-- View: DR Mensal -->
+      <div id="view-dr" class="hidden">
+        <main class="max-w-7xl mx-auto px-6 py-8">
+          <div class="mb-6">
+            <h1 class="t-h1">DR Mensal</h1>
+            <p class="t-small text-slate-400 mt-0.5">Demonstração de Resultado por mês · respeita os filtros do header</p>
+          </div>
 
     <!-- DR Mensal -->
     <section id="dr-section" class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
@@ -219,14 +483,36 @@
       </div>
     </section>
 
+        </main>
+      </div><!-- /view-dr -->
+
+      <!-- View: Importações -->
+      <div id="view-importacoes" class="hidden">
+        <main class="max-w-7xl mx-auto px-6 py-8">
+          <div class="mb-6">
+            <h1 class="t-h1">Extratos Importados</h1>
+            <p class="t-small text-slate-400 mt-0.5">Histórico de imports por conta e mês · clique no lixo para remover</p>
+          </div>
+
     <!-- Imported extracts list -->
-    <section id="imports-section" class="hidden bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+    <section id="imports-section" class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
       <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
         <h2 class="text-sm font-semibold text-slate-300">Extratos Importados</h2>
         <span class="text-xs text-slate-500">Clique no lixo para remover um extrato</span>
       </div>
       <div id="imports-list" class="divide-y divide-slate-800"></div>
     </section>
+
+        </main>
+      </div><!-- /view-importacoes -->
+
+      <!-- View: Imposto de Renda -->
+      <div id="view-ir" class="hidden">
+        <main class="max-w-7xl mx-auto px-6 py-8">
+          <div class="mb-6">
+            <h1 class="t-h1">Declaração de Imposto de Renda</h1>
+            <p class="t-small text-slate-400 mt-0.5">DRE por exercício · Bens e Direitos · PTAX Banco Central · todos os exercícios disponíveis</p>
+          </div>
 
     <!-- Declaração IR -->
     <section id="ir-section" class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hidden">
@@ -251,33 +537,50 @@
       <div id="ir-content"></div>
     </section>
 
+        </main>
+      </div><!-- /view-ir -->
+
+      <!-- View: Transações -->
+      <div id="view-transacoes" class="hidden">
+        <main class="max-w-7xl mx-auto px-6 py-8">
+          <div class="mb-6 flex items-end justify-between flex-wrap gap-3">
+            <div>
+              <h1 class="t-h1">Transações</h1>
+              <p class="t-small text-slate-400 mt-0.5">Lista completa · respeita os filtros do header · busca por descrição, empresa ou categoria</p>
+            </div>
+          </div>
+
     <!-- Transactions table -->
     <section id="tx-table-section" class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
       <div class="flex items-center justify-between p-5 border-b border-slate-800">
         <h2 class="text-sm font-semibold text-slate-300">Transações</h2>
-        <input id="tx-search" type="search" placeholder="Buscar..."
-               class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:border-emerald-500" />
+        <div class="flex items-center gap-3">
+          <input id="tx-search" type="search" placeholder="Buscar descrição, empresa, categoria..."
+                 class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm w-80 focus:outline-none focus:border-emerald-500" />
+          <span class="t-caption text-slate-500 hidden sm:inline">click no cabeçalho pra ordenar · "/"&nbsp;foca</span>
+        </div>
       </div>
-      <div class="overflow-x-auto scroll-thin max-h-[600px]">
+      <div class="overflow-x-auto scroll-thin max-h-[640px]">
         <table class="w-full text-sm">
-          <thead class="bg-slate-950 sticky top-0 text-xs uppercase tracking-wider text-slate-400">
+          <thead class="bg-slate-950 sticky top-0 t-caption text-slate-400 cursor-default select-none">
             <tr>
-              <th class="px-4 py-3 text-left">Data</th>
-              <th class="px-4 py-3 text-left">Conta</th>
-              <th class="px-4 py-3 text-left">Descrição</th>
-              <th class="px-4 py-3 text-left">Categoria</th>
-              <th class="px-4 py-3 text-right">Receita</th>
-              <th class="px-4 py-3 text-right">Despesa</th>
-              <th class="px-4 py-3 text-right">Saldo</th>
+              <th data-sort="date"     onclick="setTxSort('date')"     class="px-4 py-3 text-left  cursor-pointer hover:text-slate-200">Data <span class="sort-arrow ml-0.5"></span></th>
+              <th data-sort="account"  onclick="setTxSort('account')"  class="px-4 py-3 text-left  cursor-pointer hover:text-slate-200">Conta <span class="sort-arrow ml-0.5"></span></th>
+              <th data-sort="desc"     onclick="setTxSort('desc')"     class="px-4 py-3 text-left  cursor-pointer hover:text-slate-200">Descrição <span class="sort-arrow ml-0.5"></span></th>
+              <th data-sort="category" onclick="setTxSort('category')" class="px-4 py-3 text-left  cursor-pointer hover:text-slate-200">Categoria <span class="sort-arrow ml-0.5"></span></th>
+              <th data-sort="credit"   onclick="setTxSort('credit')"   class="px-4 py-3 text-right cursor-pointer hover:text-slate-200">Receita <span class="sort-arrow ml-0.5"></span></th>
+              <th data-sort="debit"    onclick="setTxSort('debit')"    class="px-4 py-3 text-right cursor-pointer hover:text-slate-200">Despesa <span class="sort-arrow ml-0.5"></span></th>
+              <th data-sort="balance"  onclick="setTxSort('balance')"  class="px-4 py-3 text-right cursor-pointer hover:text-slate-200">Saldo <span class="sort-arrow ml-0.5"></span></th>
             </tr>
           </thead>
           <tbody id="tx-table"></tbody>
         </table>
       </div>
+      <div id="tx-paginator" class="hidden flex items-center justify-between gap-3 px-5 py-3 border-t border-slate-800 bg-slate-950/50"></div>
     </section>
 
         </main>
-      </div><!-- /view-home -->
+      </div><!-- /view-transacoes -->
 
       <!-- View: Resumo de Entradas e Saídas -->
       <div id="view-resumo" class="hidden">
@@ -332,20 +635,118 @@
     </div>
   </div>
 
+  <!-- ── Command Palette (Cmd+K) ──────────────────────────────── -->
+  <div id="modal-cmdk" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-start justify-center z-50 pt-24 px-4 no-print">
+    <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-xl flex flex-col shadow-2xl shadow-black/60 animate-fade-in">
+      <div class="flex items-center gap-3 px-4 py-3 border-b border-slate-800">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 shrink-0">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input id="cmdk-input" type="text" placeholder="Ir para… filtrar por mês… ou buscar empresa"
+               class="flex-1 bg-transparent border-0 outline-none t-body text-slate-100 placeholder-slate-500" autocomplete="off" />
+        <kbd class="t-caption px-1.5 py-0.5 rounded border border-slate-700 text-slate-400 text-[10px]">ESC</kbd>
+      </div>
+      <div id="cmdk-list" class="max-h-[60vh] overflow-y-auto scroll-thin py-2"></div>
+      <div class="flex items-center justify-between px-4 py-2 border-t border-slate-800 t-small text-slate-500">
+        <span class="flex gap-3">
+          <span><kbd class="px-1 rounded border border-slate-700">↑↓</kbd> navegar</span>
+          <span><kbd class="px-1 rounded border border-slate-700">↵</kbd> selecionar</span>
+        </span>
+        <span class="hidden sm:inline">Atalhos: <kbd class="px-1 rounded border border-slate-700">⌘K</kbd></span>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ============================================================
     // Helpers
     // ============================================================
-    const fmt = n => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0);
+
+    // ── Currency state (USD / BRL toggle) ────────────────────────
+    // Default to user's preferred currency, persisted via localStorage.
+    let CURRENCY = (() => {
+      try { return localStorage.getItem("dash.currency") || "USD"; }
+      catch { return "USD"; }
+    })();
+    let FX_RATE_BRL = null;            // PTAX rate (USD → BRL); set when loaded
+    let FX_RATE_BRL_DATE = null;       // ISO date the rate refers to
+
+    const _USD_FMT = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+    const _BRL_FMT = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+    /**
+     * Format a USD numeric value in the active currency.
+     * @param {number} usd
+     * @param {Object} [opts]
+     * @param {string} [opts.as] — force "USD" or "BRL" (overrides global toggle)
+     * @param {boolean} [opts.compact] — short form like "$1.2k"
+     */
+    function fmt(usd, opts = {}) {
+      const target = opts.as || CURRENCY;
+      const n = (usd ?? 0);
+      if (target === "BRL") {
+        if (FX_RATE_BRL == null) return _USD_FMT.format(n); // graceful fallback while PTAX loads
+        const brl = n * FX_RATE_BRL;
+        return opts.compact ? _fmtCompactBRL(brl) : _BRL_FMT.format(brl);
+      }
+      return opts.compact ? _fmtCompactUSD(n) : _USD_FMT.format(n);
+    }
+    function _fmtCompactUSD(n) {
+      const a = Math.abs(n); const sign = n < 0 ? "-" : "";
+      if (a >= 1e6) return `${sign}$${(a/1e6).toFixed(2)}M`;
+      if (a >= 1e3) return `${sign}$${(a/1e3).toFixed(1)}k`;
+      return _USD_FMT.format(n);
+    }
+    function _fmtCompactBRL(n) {
+      const a = Math.abs(n); const sign = n < 0 ? "-" : "";
+      if (a >= 1e6) return `${sign}R$${(a/1e6).toFixed(2)}M`;
+      if (a >= 1e3) return `${sign}R$${(a/1e3).toFixed(1)}k`;
+      return _BRL_FMT.format(n);
+    }
+
+    /** Toggle between USD ⇄ BRL and trigger a re-render. */
+    function setCurrency(ccy) {
+      if (ccy !== "USD" && ccy !== "BRL") return;
+      if (CURRENCY === ccy) return;
+      CURRENCY = ccy;
+      try { localStorage.setItem("dash.currency", ccy); } catch {}
+      // Sync the toggle widget if present
+      const wrap = document.getElementById("ccy-toggle");
+      if (wrap) {
+        wrap.classList.toggle("is-brl", ccy === "BRL");
+        wrap.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.ccy === ccy));
+      }
+      // Re-render whatever is currently visible
+      if (typeof renderAll === "function") renderAll();
+    }
+
     const monthName = ym => {
       const [y, m] = ym.split("-");
       return ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][+m-1] + "/" + y.slice(2);
     };
     const dateBR = iso => { const [y,m,d] = iso.split("-"); return `${d}/${m}/${y.slice(2)}`; };
 
+    // ── Chart.js global polish ──────────────────────────────────
     Chart.defaults.color = "#94a3b8";
     Chart.defaults.borderColor = "#1e293b";
     Chart.defaults.font.family = "-apple-system, system-ui, sans-serif";
+    Chart.defaults.font.size = 11.5;
+    Chart.defaults.animation.duration = 600;
+    Chart.defaults.animation.easing = "easeOutQuart";
+    Chart.defaults.plugins.tooltip.backgroundColor = "rgba(15, 23, 42, 0.95)";
+    Chart.defaults.plugins.tooltip.titleColor = "#f1f5f9";
+    Chart.defaults.plugins.tooltip.bodyColor = "#cbd5e1";
+    Chart.defaults.plugins.tooltip.borderColor = "#334155";
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+    Chart.defaults.plugins.tooltip.padding = 10;
+    Chart.defaults.plugins.tooltip.cornerRadius = 8;
+    Chart.defaults.plugins.tooltip.titleFont = { weight: "600", size: 12 };
+    Chart.defaults.plugins.tooltip.bodyFont = { size: 12 };
+    Chart.defaults.plugins.tooltip.boxPadding = 4;
+    Chart.defaults.plugins.legend.labels.usePointStyle = true;
+    Chart.defaults.plugins.legend.labels.boxWidth = 8;
+    Chart.defaults.plugins.legend.labels.padding = 12;
+
     const PALETTE = ["#10b981","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316","#6366f1","#84cc16"];
 
     // ============================================================
@@ -538,7 +939,11 @@
       const desc     = row["description"]?.trim() || "";
       const nickname = row["nickname"]?.trim() || "";
       const status   = row["status"]?.trim() || "";
-      if (status && status.toLowerCase() === "pending") return null; // skip pending
+      // Skip non-real charges: pending, declined (rejected by issuer), on hold
+      const skip = ["pending", "declined", "on hold"];
+      if (status && skip.includes(status.toLowerCase())) return null;
+      // Skip internal collateral mechanics — DEPOSIT locks funds, RETURN releases them
+      if (/^COLLATERAL\s+(DEPOSIT|RETURN)\b/i.test(desc)) return null;
 
       // Clean merchant name: "FACEBK *36LY6XC7B2" → "Facebook"
       const merchant = cleanCardMerchant(desc);
@@ -958,10 +1363,13 @@
 
     async function refreshAll() {
       rebuildState();
+      renderSidebarAccounts();
       refreshAccountFilter();
       refreshMonthFilter();
       await refreshImportsList();
       render();
+      // Also render whichever non-home view is active
+      if (currentView !== "home" && typeof renderAll === "function") renderAll();
     }
 
     function getFilteredTxs() {
@@ -1007,7 +1415,10 @@
         `${txs.filter(t=>t.type==="expense").length} cobranças${refund > 0 ? ` · ${fmt(refund)} estornos` : ""}`;
       const netEl = document.getElementById("kpi-net");
       netEl.textContent = fmt(net);
-      netEl.className = "num text-2xl font-semibold " + (net >= 0 ? "text-emerald-400" : "text-rose-400");
+      netEl.className = "num text-2xl font-semibold mt-1 " + (net >= 0 ? "text-emerald-400" : "text-rose-400");
+
+      // ── KPI delta pills (vs previous comparable period) ──
+      updateKPIDeltas(txs, { income, netExpense, net });
 
       const catTotals = {};
       txs.forEach(t => {
@@ -1018,9 +1429,14 @@
       document.getElementById("kpi-topcat").textContent = topCat ? topCat[0] : "—";
       document.getElementById("kpi-topcat-amount").textContent = topCat ? fmt(topCat[1]) : "";
 
+      // Header balance: latest runningBalance per account.
+      // Some imports (e.g. LootRush crypto wallet) have absurd negative balances
+      // due to upstream accounting quirks — clamp anything beyond ±$1B as bogus.
+      const SANE_BALANCE = 1e9;
       const latestBalance = state.accounts.reduce((sum, a) => {
         if (!a.transactions.length) return sum;
-        return sum + (a.transactions[a.transactions.length - 1].runningBalance || 0);
+        const bal = a.transactions[a.transactions.length - 1].runningBalance || 0;
+        return Math.abs(bal) > SANE_BALANCE ? sum : sum + bal;
       }, 0);
       document.getElementById("header-balance").textContent = fmt(latestBalance);
 
@@ -1235,34 +1651,64 @@
     // ============================================================
     // Table
     // ============================================================
-    function renderTable(txs) {
-      const search = (document.getElementById("tx-search").value || "").toLowerCase();
-      const filtered = search
-        ? txs.filter(t =>
-            (t.description||"").toLowerCase().includes(search) ||
-            (t.merchant||"").toLowerCase().includes(search) ||
-            (t.category||"").toLowerCase().includes(search) ||
-            (t.account||"").toLowerCase().includes(search))
-        : txs;
+    // Tx table state: sort + pagination
+    const TX_STATE = { sortKey: "date", sortDir: "desc", limit: 500 };
+    let _txCache = [];
 
-      const sorted = [...filtered].sort((a,b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
+    function renderTable(txs) {
+      _txCache = txs;
+      _renderTable();
+    }
+
+    function _renderTable() {
+      const search = (document.getElementById("tx-search")?.value || "").toLowerCase();
+      let rows = _txCache;
+      if (search) {
+        rows = rows.filter(t =>
+          (t.description || "").toLowerCase().includes(search) ||
+          (t.merchant    || "").toLowerCase().includes(search) ||
+          (t.category    || "").toLowerCase().includes(search) ||
+          (t.account     || "").toLowerCase().includes(search));
+      }
+
+      // Sort by current key
+      const dir = TX_STATE.sortDir === "asc" ? 1 : -1;
+      const k   = TX_STATE.sortKey;
+      const cmp = {
+        date:    (a, b) => (a.date.localeCompare(b.date) || a.time.localeCompare(b.time)) * dir,
+        account: (a, b) => (a.account || "").localeCompare(b.account || "") * dir,
+        desc:    (a, b) => (a.merchant || a.description || "").localeCompare(b.merchant || b.description || "") * dir,
+        category:(a, b) => (a.category || "").localeCompare(b.category || "") * dir,
+        credit:  (a, b) => (a.credit - b.credit) * dir,
+        debit:   (a, b) => (a.debit  - b.debit)  * dir,
+        balance: (a, b) => ((a.runningBalance||0) - (b.runningBalance||0)) * dir,
+      }[k] || ((a, b) => 0);
+      const sorted = [...rows].sort(cmp);
+
       const tbody = document.getElementById("tx-table");
+      const countEl = document.getElementById("tx-count");
+      if (countEl) countEl.textContent = `${sorted.length.toLocaleString("pt-BR")} transações`;
       if (!sorted.length) {
         tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">Nenhuma transação</td></tr>';
         return;
       }
-      tbody.innerHTML = sorted.map(t => {
+
+      const limit = TX_STATE.limit;
+      const visible = sorted.slice(0, limit);
+      tbody.innerHTML = visible.map(t => {
         const badge = t.type === "income"
           ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 text-xs">Receita</span>'
           : t.type === "refund"
           ? `<span class="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 text-xs">Estorno</span>`
           : `<span class="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-300 text-xs">${t.category||"Outros"}</span>`;
+        const co = (typeof getCompany === "function") ? getCompany(t) : (t.merchant || "");
+        const labelEsc = (t.merchant || t.description || "").replace(/"/g, "&quot;");
         return `
-          <tr class="border-t border-slate-800 hover:bg-slate-800/30">
+          <tr class="border-t border-slate-800 hover:bg-slate-800/30 cursor-pointer" onclick="openEmpresa(${JSON.stringify(co).replace(/"/g, "&quot;")})">
             <td class="px-4 py-2.5 num text-slate-400 whitespace-nowrap">${dateBR(t.date)}</td>
             <td class="px-4 py-2.5 text-slate-400 text-xs whitespace-nowrap">${t.account||""}</td>
             <td class="px-4 py-2.5">
-              <div class="font-medium">${t.merchant||t.description}</div>
+              <div class="font-medium" title="${labelEsc}">${t.merchant||t.description}</div>
               <div class="text-xs text-slate-500">${t.subcategory||""}</div>
             </td>
             <td class="px-4 py-2.5">${badge}</td>
@@ -1271,6 +1717,42 @@
             <td class="px-4 py-2.5 text-right num text-slate-400">${t.runningBalance ? fmt(t.runningBalance) : "—"}</td>
           </tr>`;
       }).join("");
+
+      // Pagination footer
+      const paginator = document.getElementById("tx-paginator");
+      if (paginator) {
+        if (sorted.length > limit) {
+          paginator.classList.remove("hidden");
+          paginator.innerHTML = `
+            <span class="t-small text-slate-500">Mostrando ${visible.length.toLocaleString("pt-BR")} de ${sorted.length.toLocaleString("pt-BR")}</span>
+            <button id="tx-show-more" class="t-small px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white transition">Carregar mais (+1.000)</button>
+            <button id="tx-show-all"  class="t-small px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition">Mostrar todas</button>
+          `;
+          document.getElementById("tx-show-more").onclick = () => { TX_STATE.limit += 1000; _renderTable(); };
+          document.getElementById("tx-show-all").onclick  = () => { TX_STATE.limit = sorted.length;  _renderTable(); };
+        } else {
+          paginator.classList.add("hidden");
+        }
+      }
+
+      // Update sort indicators
+      document.querySelectorAll("#tx-table-section thead th[data-sort]").forEach(th => {
+        const key = th.dataset.sort;
+        const arrow = th.querySelector(".sort-arrow");
+        if (!arrow) return;
+        if (key === TX_STATE.sortKey) arrow.textContent = TX_STATE.sortDir === "asc" ? "↑" : "↓";
+        else arrow.textContent = "";
+      });
+    }
+
+    function setTxSort(key) {
+      if (TX_STATE.sortKey === key) {
+        TX_STATE.sortDir = TX_STATE.sortDir === "asc" ? "desc" : "asc";
+      } else {
+        TX_STATE.sortKey = key;
+        TX_STATE.sortDir = key === "date" ? "desc" : "asc";
+      }
+      _renderTable();
     }
 
     // ============================================================
@@ -1338,6 +1820,10 @@
           : monthName(startMonth) + " – " + monthName(endMonth);
         btn.classList.add("border-emerald-500");
         btn.classList.remove("border-slate-700");
+      }
+      // Reflect active preset on the chip strip
+      if (typeof syncPeriodChips === "function" && typeof detectActivePreset === "function") {
+        syncPeriodChips(detectActivePreset());
       }
     }
 
@@ -1467,6 +1953,61 @@
     document.getElementById("btn-this-year").addEventListener("click", () => setYear(new Date().getFullYear()));
     document.getElementById("btn-last-year").addEventListener("click", () => setYear(new Date().getFullYear() - 1));
 
+    // ============================================================
+    // Period chips (Mês atual / Trimestre / Ano / etc.)
+    // ============================================================
+    function applyPreset(preset) {
+      const today = new Date();
+      const ym = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const cur  = ym(today);
+      const last = ym(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+      const m3   = ym(new Date(today.getFullYear(), today.getMonth() - 2, 1));
+      const m6   = ym(new Date(today.getFullYear(), today.getMonth() - 5, 1));
+      const y    = today.getFullYear();
+      switch (preset) {
+        case "current":  startMonth = cur;          endMonth = cur;          break;
+        case "last":     startMonth = last;         endMonth = last;         break;
+        case "quarter":  startMonth = m3;           endMonth = cur;          break;
+        case "semester": startMonth = m6;           endMonth = cur;          break;
+        case "year":     startMonth = `${y}-01`;    endMonth = `${y}-12`;    break;
+        case "lastYear": startMonth = `${y-1}-01`;  endMonth = `${y-1}-12`;  break;
+        case "all":      startMonth = null;         endMonth = null;         break;
+      }
+      syncPeriodChips(preset);
+      renderMonthGrid();
+      updatePickerLabel();
+      render();
+    }
+
+    function syncPeriodChips(activePreset) {
+      document.querySelectorAll("#period-chips .period-chip").forEach(c => {
+        c.classList.toggle("active", c.dataset.preset === activePreset);
+      });
+    }
+
+    /** Detect which preset (if any) matches the current startMonth/endMonth and highlight. */
+    function detectActivePreset() {
+      if (!startMonth && !endMonth) return "all";
+      const today = new Date();
+      const ym = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const cur  = ym(today);
+      const last = ym(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+      const m3   = ym(new Date(today.getFullYear(), today.getMonth() - 2, 1));
+      const m6   = ym(new Date(today.getFullYear(), today.getMonth() - 5, 1));
+      const y    = today.getFullYear();
+      if (startMonth === cur  && endMonth === cur)  return "current";
+      if (startMonth === last && endMonth === last) return "last";
+      if (startMonth === m3   && endMonth === cur)  return "quarter";
+      if (startMonth === m6   && endMonth === cur)  return "semester";
+      if (startMonth === `${y}-01`   && endMonth === `${y}-12`)   return "year";
+      if (startMonth === `${y-1}-01` && endMonth === `${y-1}-12`) return "lastYear";
+      return null; // custom range
+    }
+
+    document.querySelectorAll("#period-chips .period-chip").forEach(chip => {
+      chip.addEventListener("click", () => applyPreset(chip.dataset.preset));
+    });
+
     document.addEventListener("click", e => {
       const csvBtn = e.target.closest("#btn-export-csv");
       const pdfBtn = e.target.closest("#btn-export-pdf");
@@ -1477,6 +2018,14 @@
     // ============================================================
     // Sidebar layout: sticky below header
     // ============================================================
+    function toggleGrupo(id) {
+      const panel  = document.getElementById(id);
+      const chev   = document.getElementById(id + "-chev");
+      if (!panel) return;
+      const open = panel.classList.toggle("hidden");
+      if (chev) chev.style.transform = open ? "" : "rotate(90deg)";
+    }
+
     function updateSidebarLayout() {
       const header  = document.querySelector("header");
       const sidebar = document.getElementById("sidebar");
@@ -1492,19 +2041,48 @@
     // View switching
     // ============================================================
     let currentView = "home";
+    let currentAccountId = null;  // when currentView === 'conta'
+    let currentCompany = null;    // when currentView === 'empresa'
 
-    function switchView(view) {
+    const VIEW_IDS = ["home", "saude", "caixa", "resumo", "assinaturas", "transacoes", "conta", "empresa", "dr", "ir", "importacoes"];
+
+    function switchView(view, ctx = {}) {
       currentView = view;
-      document.getElementById("view-home").classList.toggle("hidden", view !== "home");
-      document.getElementById("view-resumo").classList.toggle("hidden", view !== "resumo");
-      document.querySelectorAll(".nav-btn").forEach(btn => {
-        const active = btn.id === `nav-${view}`;
-        btn.classList.toggle("bg-slate-800",   active);
-        btn.classList.toggle("text-white",      active);
-        btn.classList.toggle("text-slate-400",  !active);
-        btn.classList.toggle("hover:bg-slate-800/50", !active);
+      // Toggle view containers
+      VIEW_IDS.forEach(v => {
+        const el = document.getElementById(`view-${v}`);
+        if (el) el.classList.toggle("hidden", v !== view);
       });
-      if (view === "resumo") renderResumo();
+
+      // Active nav button. Per-account uses nav-conta-<accId>
+      const expectedNavId = (view === "conta" && ctx.accountId)
+        ? `nav-conta-${ctx.accountId}`
+        : `nav-${view}`;
+      document.querySelectorAll(".nav-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.id === expectedNavId);
+      });
+
+      // Per-view render hooks
+      if (view === "resumo")      renderResumo();
+      if (view === "saude")       renderSaude();
+      if (view === "caixa")       { caixaState._autoFetchedThisOpen = false; renderCaixa(); }
+      if (view === "assinaturas") renderAssinaturas();
+      if (view === "conta") {
+        currentAccountId = ctx.accountId || currentAccountId;
+        if (currentAccountId) renderConta(currentAccountId);
+      }
+      if (view === "empresa") {
+        currentCompany = ctx.company || currentCompany;
+        if (currentCompany) renderEmpresa(currentCompany);
+      }
+
+      // Scroll content area to top on view change for clean entrance
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+
+    /** Open the Empresa drill-down for a canonical company name. */
+    function openEmpresa(companyName) {
+      switchView("empresa", { company: companyName });
     }
 
     // ============================================================
@@ -1531,6 +2109,8 @@
       { id: "cartao",         label: "Cartão",                cor: "#f97316", tipo: "saida",
         match: t => t.type === "expense" &&
           /cart[aã]o/i.test(t.category || "") },
+      { id: "transferencia-interna", label: "Transferência Interna", cor: "#a855f7", tipo: "saida",
+        match: t => t.type === "transfer" },
       { id: "outros",         label: "Outras Saídas",         cor: "#6b7280", tipo: "saida",
         match: t => t.type === "expense" },
     ];
@@ -1548,6 +2128,95 @@
       return result;
     }
 
+    /** Numeric amount for a transaction, regardless of type. */
+    function txAmount(t) {
+      if (t.type === "income" || t.type === "refund") return t.credit || 0;
+      // expense, transfer, other → use debit (whichever side has value)
+      return t.debit || t.credit || 0;
+    }
+
+    // ============================================================
+    // Canonical company name (global — used by all views)
+    // ============================================================
+    const MERCHANT_MAP = [
+      [/^FACEBK\b/i,               'Facebook / Meta'],
+      [/^FACEBOOK\b/i,             'Facebook / Meta'],
+      [/^META\s*[\*/]/i,           'Facebook / Meta'],
+      [/^AMZN\b/i,                 'Amazon'],
+      [/^AMAZON\b/i,               'Amazon'],
+      [/^APPLE\.COM/i,             'Apple'],
+      [/^APPLE\s*[\*/]/i,          'Apple'],
+      [/^GOOGLE\b/i,               'Google'],
+      [/^PAYPAL\b/i,               'PayPal'],
+      [/^SHOPIFY\b/i,              'Shopify'],
+      [/^NETFLIX\b/i,              'Netflix'],
+      [/^SPOTIFY\b/i,              'Spotify'],
+      [/^OPENAI\b/i,               'OpenAI'],
+      [/^CLAUDE\.AI\b/i,           'Claude.AI (Anthropic)'],
+      [/^ANTHROPIC\b/i,            'Claude.AI (Anthropic)'],
+      [/^DROPBOX\b/i,              'Dropbox'],
+      [/^NOTION\b/i,               'Notion'],
+      [/^SLACK\b/i,                'Slack'],
+      [/^ZOOM\b/i,                 'Zoom'],
+      [/^DIGITALOCEAN\b/i,         'DigitalOcean'],
+      [/^CLOUDFLARE\b/i,           'Cloudflare'],
+      [/^GITHUB\b/i,               'GitHub'],
+      [/^STRIPE\b/i,               'Stripe'],
+      [/^TWILIO\b/i,               'Twilio'],
+      [/^ADSPOWER\b/i,             'AdsPower'],
+      [/^VTURB\b/i,                'Vturb'],
+      [/^NANONOBLE\b/i,            'NanoNoble'],
+      [/^1PASSWORD\b/i,            '1Password'],
+      [/^TWR\s+AT\b/i,             'TWR AT'],
+      [/^RUNWAY\b/i,               'Runway'],
+      [/^Full\s+Stack\s+Fulfillm/i,'Full Stack Fulfillment'],
+      [/^Zurich\s+Marriott/i,      'Zurich Marriott Hotel'],
+      [/^Sbb\s+Cff/i,              'SBB CFF FFS'],
+      [/^Wab\s+Grindelwald/i,      'WAB Grindelwald Grund'],
+      [/^DL\s*\*\s*Google\s+Ads/i, 'Google'],
+      [/^PADDLE\.NET/i,            'Paddle.net'],
+      [/^TUBESIFT\b/i,             'Tubesift'],
+      [/^DIRECTADS\b/i,            'DirectAds'],
+      [/^ELEVENLABS(\.IO)?/i,      'ElevenLabs'],
+      [/Lovable\b.*LOVABLE\.DEV/i, 'Lovable'],
+      [/^LOVABLE(\.DEV)?\b/i,      'Lovable'],
+      [/^REDTRACK(\.IO)?/i,        'Redtrack'],
+      [/^ADSPY\b/i,                'Adspy'],
+      [/^GROK\s+XAI\b/i,           'Grok'],
+      [/^GROK\b/i,                 'Grok'],
+      [/^X\.AI\b/i,                'Grok'],
+    ];
+
+    function getCompany(t) {
+      const raw = t.description || t.memo || t.name || "";
+      let name = raw.trim();
+      // Pattern 1: "Card transaction of X.XX CUR issued by MERCHANT [REF]"
+      const issuedBy = raw.match(/\bissued\s+by\s+(.+)$/i);
+      if (issuedBy) {
+        name = issuedBy[1].trim();
+        name = name.replace(/^In\s*\*\s*/i, '');
+        name = name.replace(/\s+[\d][\d\-]{3,}\s*$/, '').trim();
+      }
+      // Pattern 2: "Card charge (COMPANY NAME)"
+      if (!issuedBy) {
+        const inParen = raw.match(/\(([^)]+)\)\s*$/);
+        if (inParen) name = inParen[1].trim();
+      }
+      // Merchant map
+      for (const [pattern, canonical] of MERCHANT_MAP) {
+        if (pattern.test(name)) return canonical;
+      }
+      // Strip trailing " *ALPHANUM" transaction ref codes
+      name = name.replace(/\s*[*#]\s*[A-Z0-9]{4,}\s*$/i, '').trim();
+      // Title-case for all-upper names
+      if (name === name.toUpperCase() && name.length > 3) {
+        name = name.replace(/\b\w+/g, w =>
+          w.length <= 2 ? w : w[0].toUpperCase() + w.slice(1).toLowerCase()
+        );
+      }
+      return name || "Outros";
+    }
+
     // ============================================================
     // Render: Resumo de Entradas e Saídas
     // ============================================================
@@ -1561,14 +2230,95 @@
         return;
       }
 
+      // ── Initial classification ────────────────────────────────────────
       const txClass = classifyTxs(txs);
 
-      // Aggregate by group
+      // ── Merchant → group override ─────────────────────────────────────
+      // Forces well-known merchants into the right group regardless of the
+      // category the bank assigned (e.g. Facebook lands in "outros" because
+      // its category is "GT4 | CA04 1", not "marketing").
+      const MERCHANT_TO_GROUP = {
+        'Facebook / Meta':       'marketing',
+        'Google':                'marketing',
+        'TikTok':                'marketing',
+        'Taboola':               'marketing',
+        'Vturb':                 'ferramentas',
+        'Twilio':                'ferramentas',
+        'AdsPower':              'ferramentas',
+        'Claude.AI (Anthropic)': 'ferramentas',
+        'OpenAI':                'ferramentas',
+        'GitHub':                'ferramentas',
+        'Notion':                'ferramentas',
+        'Slack':                 'ferramentas',
+        'Zoom':                  'ferramentas',
+        'DigitalOcean':          'ferramentas',
+        'Cloudflare':            'ferramentas',
+        'Dropbox':               'ferramentas',
+        '1Password':             'ferramentas',
+        'Runway':                'ferramentas',
+        'NanoNoble':             'ferramentas',
+        'Shopify':               'ferramentas',
+        'Stripe':                'ferramentas',
+        'Eyefive':               'ferramentas',
+        'Paddle.net':            'ferramentas',
+        'Tubesift':              'ferramentas',
+        'DirectAds':             'ferramentas',
+        'ElevenLabs':            'ferramentas',
+        'Lovable':               'ferramentas',
+        'Redtrack':              'ferramentas',
+        'Adspy':                 'ferramentas',
+        'Grok':                  'ferramentas',
+      };
+      const MERCHANT_PRIO = Object.fromEntries(GRUPOS.map((g, i) => [g.id, i]));
+      txs.forEach(t => {
+        const co       = getCompany(t);
+        const override = MERCHANT_TO_GROUP[co];
+        if (!override) return;
+        const cur = txClass.get(t);
+        // Apply override if currently unclassified, in "outros", or override is higher priority
+        if (!cur || cur === 'outros' || (MERCHANT_PRIO[override] < MERCHANT_PRIO[cur])) {
+          txClass.set(t, override);
+        }
+      });
+
+      // ── Company consolidation ─────────────────────────────────────────
+      // If the same company appears in multiple groups, move ALL its
+      // transactions to the highest-priority non-catch-all group.
+      const GRUPO_PRIORITY = Object.fromEntries(GRUPOS.map((g, i) => [g.id, i]));
+
+      // Step 1: for each company find the best (most-specific) group
+      const companyBestGroup = new Map();
+      txs.forEach(t => {
+        const gid = txClass.get(t); if (!gid) return;
+        const co  = getCompany(t);
+        const cur = companyBestGroup.get(co);
+        // Prefer any specific group over "outros"; among specifics, take highest priority
+        const betterSpecific = cur !== 'outros' && gid !== 'outros'
+          ? GRUPO_PRIORITY[gid] < GRUPO_PRIORITY[cur]
+          : gid !== 'outros';
+        if (!cur || (cur === 'outros' && gid !== 'outros') || (cur !== 'outros' && betterSpecific)) {
+          companyBestGroup.set(co, gid);
+        }
+      });
+
+      // Step 2: re-assign transactions to their company's best group
+      txs.forEach(t => {
+        const gid  = txClass.get(t); if (!gid) return;
+        const co   = getCompany(t);
+        const best = companyBestGroup.get(co);
+        if (best && best !== gid) {
+          const bestGrupo = GRUPOS.find(g => g.id === best);
+          const curGrupo  = GRUPOS.find(g => g.id === gid);
+          if (bestGrupo?.tipo === curGrupo?.tipo) txClass.set(t, best);
+        }
+      });
+
+      // ── Aggregate (after consolidation) ──────────────────────────────
       const agg = {};
       GRUPOS.forEach(g => agg[g.id] = { total: 0, count: 0 });
       txs.forEach(t => {
         const gid = txClass.get(t); if (!gid) return;
-        agg[gid].total += t.type === "expense" ? t.debit : t.credit;
+        agg[gid].total += txAmount(t);
         agg[gid].count++;
       });
 
@@ -1579,29 +2329,105 @@
       const net      = totalIn - totalOut;
       const netCls   = net >= 0 ? "text-emerald-400" : "text-rose-400";
 
-      // Group row builder
-      const groupRow = g => {
-        const { total, count } = agg[g.id];
-        if (!count) return "";
-        const base = g.tipo === "entrada" ? totalIn : totalOut;
-        const pct  = base > 0 ? (total / base * 100) : 0;
+      // Group row builder — 3-level: Group → Company → Transaction
+      // Accepts an optional options bag so it can render scoped to a subset
+      // of transactions (e.g. per-account breakdown) with unique element IDs.
+      const groupRow = (g, options = {}) => {
+        const idPrefix = options.idPrefix || `grp-${g.id}`;
+        const subset   = options.txs      || txs;
+        const baseIn   = options.totalIn  ?? totalIn;
+        const baseOut  = options.totalOut ?? totalOut;
+
+        // Sub-group by company within this group (filtered to subset)
+        const groupTxs = subset.filter(t => txClass.get(t) === g.id)
+                               .sort((a, b) => b.date.localeCompare(a.date));
+        if (!groupTxs.length) return "";
+
+        let total = 0;
+        groupTxs.forEach(t => { total += txAmount(t); });
+        const count  = groupTxs.length;
+        const base   = g.tipo === "entrada" ? baseIn : baseOut;
+        const pct    = base > 0 ? (total / base * 100) : 0;
         const valCls = g.tipo === "entrada" ? "text-emerald-400" : "text-rose-400";
+        const rowId  = idPrefix;
+        const byCompany = {};
+        groupTxs.forEach(t => {
+          const co = getCompany(t);
+          if (!byCompany[co]) byCompany[co] = { txs: [], total: 0 };
+          byCompany[co].txs.push(t);
+          byCompany[co].total += txAmount(t);
+        });
+
+        // Companies sorted by total desc
+        const companies = Object.entries(byCompany)
+                                .sort((a, b) => b[1].total - a[1].total);
+
+        const companyRows = companies.map(([co, data]) => {
+          const safeId  = co.replace(/[^a-zA-Z0-9]/g, "_");
+          const cId     = `${rowId}-${safeId}`;
+          const coTotal = data.total;
+
+          // Individual transaction rows (indented level 3)
+          const txRowsHtml = data.txs.map(t => {
+            const amt  = txAmount(t);
+            const desc = (t.description || t.memo || t.name || "—").slice(0, 70);
+            return `<div class="flex items-center gap-3 pl-14 pr-5 py-1.5 border-t border-slate-800/20 bg-slate-950/80 hover:bg-slate-800/10 transition-colors">
+              <div class="num text-xs text-slate-600 shrink-0 w-24">${t.date}</div>
+              <div class="flex-1 min-w-0 text-xs text-slate-500 truncate" title="${desc}">${desc}</div>
+              <div class="num text-xs ${valCls} shrink-0">${fmt(amt)}</div>
+            </div>`;
+          }).join("");
+
+          // Company header row (level 2) — only show toggle if >1 tx
+          const singleTx = data.txs.length === 1;
+          if (singleTx) {
+            // Single transaction: show inline without toggle
+            const t   = data.txs[0];
+            const amt = txAmount(t);
+            return `<div class="flex items-center gap-3 pl-10 pr-5 py-2 border-t border-slate-800/30 bg-slate-950/40 hover:bg-slate-800/10 transition-colors">
+              <div class="flex-1 min-w-0 text-xs text-slate-300 font-medium">${co}</div>
+              <div class="num text-xs text-slate-500 shrink-0 mr-3">${t.date}</div>
+              <div class="num text-xs font-semibold ${valCls} shrink-0">${fmt(amt)}</div>
+            </div>`;
+          }
+
+          return `<div class="border-t border-slate-800/30">
+            <button onclick="toggleGrupo('${cId}')"
+                    class="w-full flex items-center gap-3 pl-10 pr-5 py-2 hover:bg-slate-800/15 transition-colors text-left bg-slate-950/40">
+              <div class="flex-1 min-w-0 text-xs font-medium text-slate-300">${co}</div>
+              <div class="num text-xs font-semibold ${valCls} shrink-0">${fmt(coTotal)}</div>
+              <div class="text-xs text-slate-600 shrink-0 ml-2">${data.txs.length}×</div>
+              <svg id="${cId}-chev" class="w-3 h-3 text-slate-600 shrink-0 transition-transform duration-200 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
+            <div id="${cId}" class="hidden">${txRowsHtml}</div>
+          </div>`;
+        }).join("");
+
         return `
-          <div class="flex items-center gap-3 py-2.5 border-b border-slate-800/50 last:border-0">
-            <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${g.cor}"></div>
-            <div class="flex-1 min-w-0">
-              <div class="text-sm text-slate-200">${g.label}</div>
-              <div class="text-xs text-slate-500 mt-0.5">${count} transações</div>
-            </div>
-            <div class="text-right shrink-0 w-28">
-              <div class="num text-sm font-semibold ${valCls}">${fmt(total)}</div>
-              <div class="text-xs text-slate-500">${pct.toFixed(1)}%</div>
-            </div>
-            <div class="w-20 shrink-0">
-              <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                <div class="h-full rounded-full" style="width:${Math.min(100,pct).toFixed(1)}%;background:${g.cor}"></div>
+          <div class="border-b border-slate-800/50 last:border-0">
+            <button onclick="toggleGrupo('${rowId}')"
+                    class="w-full flex items-center gap-3 px-5 py-3 hover:bg-slate-800/20 transition-colors text-left">
+              <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${g.cor}"></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm text-slate-200">${g.label}</div>
+                <div class="text-xs text-slate-500 mt-0.5">${count} transações · ${companies.length} empresas</div>
               </div>
-            </div>
+              <div class="text-right shrink-0 w-28">
+                <div class="num text-sm font-semibold ${valCls}">${fmt(total)}</div>
+                <div class="text-xs text-slate-500">${pct.toFixed(1)}%</div>
+              </div>
+              <div class="w-20 shrink-0">
+                <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full" style="width:${Math.min(100,pct).toFixed(1)}%;background:${g.cor}"></div>
+                </div>
+              </div>
+              <svg id="${rowId}-chev" class="w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
+            <div id="${rowId}" class="hidden">${companyRows}</div>
           </div>`;
       };
 
@@ -1611,7 +2437,7 @@
         const m   = t.date.slice(0, 7);
         const gid = txClass.get(t); if (!gid) return;
         if (!byMonthGroup[m]) byMonthGroup[m] = {};
-        byMonthGroup[m][gid] = (byMonthGroup[m][gid] || 0) + (t.type === "expense" ? t.debit : t.credit);
+        byMonthGroup[m][gid] = (byMonthGroup[m][gid] || 0) + (txAmount(t));
       });
       const months       = Object.keys(byMonthGroup).sort();
       const activeGroups = GRUPOS.filter(g => agg[g.id].total > 0);
@@ -1632,6 +2458,123 @@
         </tr>`;
       }).join("");
 
+      // ── Resumo por Conta ──────────────────────────────────────────────
+      // Usa a lista filtrada de contas (selectedAccounts) pra que o card
+      // respeite o seletor de contas no header. O saldo atual é puxado
+      // diretamente do state (latest runningBalance) — não depende do
+      // período filtrado, sempre mostra a posição "agora".
+      const filteredAccountIds = selectedAccounts.size === 0
+        ? new Set(state.accounts.map(a => a.id))
+        : selectedAccounts;
+      const visibleAccounts = state.accounts.filter(a => filteredAccountIds.has(a.id));
+
+      const perAccount = visibleAccounts.map((acc, idx) => {
+        // Agregados do período (respeitam filtro de meses via getFilteredTxs)
+        let accIn = 0, accOut = 0, accCount = 0;
+        txs.forEach(t => {
+          if (t.account !== acc.name) return;
+          accCount++;
+          if (t.type === "expense") accOut += t.debit;
+          else accIn += t.credit;
+        });
+        // Saldo atual: último runningBalance do extrato (independente do período).
+        // Clamp absurdos (>$1B) — algumas contas crypto têm balances corrompidos.
+        const SANE_BAL = 1e9;
+        const lastTx = acc.transactions
+          .slice()
+          .sort((a, b) => (b.date + (b.time||"")).localeCompare(a.date + (a.time||"")))[0];
+        let saldo = lastTx ? Number(lastTx.runningBalance ?? 0) : 0;
+        if (Math.abs(saldo) > SANE_BAL) {
+          // Walk backwards to find the most recent sane balance
+          const sorted = acc.transactions.slice().sort((a, b) => (b.date + (b.time||"")).localeCompare(a.date + (a.time||"")));
+          const fallback = sorted.find(t => Math.abs(Number(t.runningBalance ?? 0)) <= SANE_BAL);
+          saldo = fallback ? Number(fallback.runningBalance) : 0;
+        }
+        return {
+          id: acc.id,
+          name: acc.name,
+          currency: acc.currency || "USD",
+          color: PALETTE[idx % PALETTE.length],
+          saldo,
+          entradas: accIn,
+          saidas: accOut,
+          net: accIn - accOut,
+          count: accCount,
+        };
+      }).sort((a, b) => b.saldo - a.saldo);
+
+      const totalSaldo    = perAccount.reduce((s, a) => s + a.saldo, 0);
+      const totalEntradas = perAccount.reduce((s, a) => s + a.entradas, 0);
+      const totalSaidas   = perAccount.reduce((s, a) => s + a.saidas, 0);
+      const totalNet      = totalEntradas - totalSaidas;
+      const totalCount    = perAccount.reduce((s, a) => s + a.count, 0);
+      const maxAbsNet     = Math.max(1, ...perAccount.map(a => Math.abs(a.net)));
+
+      const accountRows = perAccount.map(a => {
+        const netCls   = a.net >= 0 ? "text-emerald-400" : "text-rose-400";
+        const saldoPct = totalSaldo > 0 ? (a.saldo / totalSaldo * 100) : 0;
+        const netPct   = (Math.abs(a.net) / maxAbsNet * 100);
+        const accId    = `acc-${a.id}`;
+
+        // Build per-account group breakdown (filtered to this account's txs)
+        const accTxs = txs.filter(t => t.account === a.name);
+        const accAgg = {};
+        GRUPOS.forEach(g => accAgg[g.id] = { total: 0, count: 0 });
+        accTxs.forEach(t => {
+          const gid = txClass.get(t); if (!gid) return;
+          accAgg[gid].total += txAmount(t);
+          accAgg[gid].count++;
+        });
+        const aTotalIn  = entradas.reduce((s, g) => s + accAgg[g.id].total, 0);
+        const aTotalOut = saidas.reduce((s, g)   => s + accAgg[g.id].total, 0);
+        const accGroupRows = GRUPOS
+          .map(g => groupRow(g, { idPrefix: `${accId}-${g.id}`, txs: accTxs, totalIn: aTotalIn, totalOut: aTotalOut }))
+          .filter(Boolean)
+          .join("");
+
+        const groupSection = accGroupRows
+          ? `<div class="bg-slate-950/40 border-t border-slate-800/40">${accGroupRows}</div>`
+          : `<div class="px-5 py-4 border-t border-slate-800/40 text-xs text-slate-500 bg-slate-950/40">Sem transações classificadas no período.</div>`;
+
+        return `
+          <div class="border-t border-slate-800/50 first:border-0">
+            <button onclick="toggleGrupo('${accId}')"
+                    class="w-full flex items-center gap-3 px-5 py-3 hover:bg-slate-800/15 transition-colors text-left">
+              <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${a.color}"></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm text-slate-200 truncate">${a.name}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">${a.count} transações no período</div>
+              </div>
+              <div class="hidden md:block text-right shrink-0 w-24">
+                <div class="text-[10px] uppercase tracking-wider text-slate-500">Entradas</div>
+                <div class="num text-xs font-medium text-emerald-400/90">${a.entradas > 0 ? fmt(a.entradas) : "—"}</div>
+              </div>
+              <div class="hidden md:block text-right shrink-0 w-24">
+                <div class="text-[10px] uppercase tracking-wider text-slate-500">Saídas</div>
+                <div class="num text-xs font-medium text-rose-400/90">${a.saidas > 0 ? fmt(a.saidas) : "—"}</div>
+              </div>
+              <div class="text-right shrink-0 w-24">
+                <div class="text-[10px] uppercase tracking-wider text-slate-500">Net</div>
+                <div class="num text-xs font-semibold ${netCls}">${fmt(a.net)}</div>
+              </div>
+              <div class="text-right shrink-0 w-32">
+                <div class="text-[10px] uppercase tracking-wider text-slate-500">Saldo Atual</div>
+                <div class="num text-sm font-semibold text-slate-100">${fmt(a.saldo)}</div>
+                <div class="text-[10px] text-slate-500">${saldoPct.toFixed(1)}% do total</div>
+              </div>
+              <div class="hidden lg:block w-20 shrink-0">
+                <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full" style="width:${Math.min(100,netPct).toFixed(1)}%;background:${a.color}"></div>
+                </div>
+              </div>
+              <svg id="${accId}-chev" class="w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
+            <div id="${accId}" class="hidden">${groupSection}</div>
+          </div>`;
+      }).join("");
+
       el.innerHTML = `
         <!-- KPIs -->
         <div class="grid grid-cols-3 gap-4">
@@ -1650,17 +2593,60 @@
           </div>
         </div>
 
+        <!-- Resumo por Conta -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-300">Resumo por Conta</h2>
+              <p class="text-[11px] text-slate-500 mt-0.5">Saldo atual independe do filtro de período · entradas/saídas/net respeitam o filtro</p>
+            </div>
+            <div class="text-right">
+              <div class="text-[10px] uppercase tracking-wider text-slate-500">Saldo Total</div>
+              <div class="num text-sm font-semibold text-slate-100">${fmt(totalSaldo)}</div>
+            </div>
+          </div>
+          ${accountRows || '<p class="text-slate-500 text-sm py-6 text-center">Nenhuma conta selecionada.</p>'}
+          ${perAccount.length ? `
+          <div class="flex items-center gap-3 px-5 py-3 border-t-2 border-slate-700 bg-slate-950/60">
+            <div class="w-2.5 h-2.5 shrink-0"></div>
+            <div class="flex-1 min-w-0">
+              <div class="t-caption">Total</div>
+              <div class="text-[11px] text-slate-500 mt-0.5">${totalCount.toLocaleString("pt-BR")} transações no período · ${perAccount.length} conta(s)</div>
+            </div>
+            <div class="hidden md:block text-right shrink-0 w-24">
+              <div class="text-[10px] uppercase tracking-wider text-slate-500">Entradas</div>
+              <div class="num text-xs font-semibold text-emerald-400">${totalEntradas > 0 ? fmt(totalEntradas) : "—"}</div>
+            </div>
+            <div class="hidden md:block text-right shrink-0 w-24">
+              <div class="text-[10px] uppercase tracking-wider text-slate-500">Saídas</div>
+              <div class="num text-xs font-semibold text-rose-400">${totalSaidas > 0 ? fmt(totalSaidas) : "—"}</div>
+            </div>
+            <div class="text-right shrink-0 w-24">
+              <div class="text-[10px] uppercase tracking-wider text-slate-500">Net</div>
+              <div class="num text-xs font-bold ${totalNet >= 0 ? "text-emerald-400" : "text-rose-400"}">${fmt(totalNet)}</div>
+            </div>
+            <div class="text-right shrink-0 w-32">
+              <div class="text-[10px] uppercase tracking-wider text-slate-500">Saldo Total</div>
+              <div class="num text-sm font-bold text-slate-100">${fmt(totalSaldo)}</div>
+              <div class="text-[10px] text-slate-500">100% · soma das contas</div>
+            </div>
+            <div class="hidden lg:block w-20 shrink-0"></div>
+            <div class="w-4 shrink-0"></div>
+          </div>
+          ` : ""}
+        </div>
+
         <!-- Groups side-by-side -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-            <div class="flex items-center justify-between mb-4">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-800">
               <h2 class="text-sm font-semibold text-slate-300">Entradas</h2>
               <span class="num text-sm font-semibold text-emerald-400">${fmt(totalIn)}</span>
             </div>
             ${entradas.map(groupRow).join("") || '<p class="text-slate-500 text-sm py-4 text-center">Sem entradas no período</p>'}
           </div>
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-            <div class="flex items-center justify-between mb-4">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-800">
               <h2 class="text-sm font-semibold text-slate-300">Saídas</h2>
               <span class="num text-sm font-semibold text-rose-400">${fmt(totalOut)}</span>
             </div>
@@ -1831,13 +2817,14 @@
         });
         const topExpCat = Object.entries(expByCat).filter(([,v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-        // Year-end saldo per account
+        // Year-end saldo per account (clamp absurd balances)
+        const SANE_BAL_IR = 1e9;
         const accRows = state.accounts.map(acc => {
           const accTxsYear = acc.transactions.filter(t => t.date.slice(0, 4) === y);
           if (!accTxsYear.length) return null;
           const sorted = [...accTxsYear].sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
           let saldo = null;
-          const lastWithBal = sorted.find(t => t.runningBalance > 0);
+          const lastWithBal = sorted.find(t => t.runningBalance > 0 && Math.abs(t.runningBalance) <= SANE_BAL_IR);
           if (lastWithBal) {
             saldo = lastWithBal.runningBalance;
           } else {
@@ -2086,21 +3073,1783 @@
     }
 
     // ============================================================
-    // BRL KPI update (async, called after render)
+    // Command Palette (Cmd+K)
+    // ============================================================
+    const CMDK_STATE = { items: [], filtered: [], idx: 0 };
+
+    function buildCommandList() {
+      const items = [];
+      // Navigation
+      const views = [
+        ["home",        "🏠 Home",                          "Visão geral"],
+        ["saude",       "💚 Saúde Financeira",              "Cash flow, runway, tendências"],
+        ["resumo",      "📊 Entradas & Saídas",             "Resumo agrupado por categoria"],
+        ["assinaturas", "🔁 Assinaturas",                    "Cobranças recorrentes detectadas"],
+        ["transacoes",  "📋 Transações",                     "Lista completa"],
+        ["dr",          "📈 DR Mensal",                      "Demonstração de resultado"],
+        ["ir",          "🧾 Imposto de Renda",              "DRE por exercício + PTAX"],
+        ["importacoes", "📥 Importações",                    "Histórico de extratos"],
+      ];
+      views.forEach(([id, label, hint]) => items.push({
+        kind: "nav", label, hint, action: () => switchView(id),
+      }));
+      state.accounts.forEach(a => items.push({
+        kind: "account", label: `💳 ${a.name}`, hint: "Dashboard da conta",
+        action: () => switchView("conta", { accountId: a.id }),
+      }));
+
+      // Period presets
+      const periods = [
+        ["current",  "Mês atual"],
+        ["last",     "Mês passado"],
+        ["quarter",  "Trimestre"],
+        ["semester", "Semestre"],
+        ["year",     "Este ano"],
+        ["lastYear", "Ano passado"],
+        ["all",      "Tudo"],
+      ];
+      periods.forEach(([p, label]) => items.push({
+        kind: "period", label: `📅 ${label}`, hint: "Aplicar filtro de período",
+        action: () => applyPreset(p),
+      }));
+
+      // Currency
+      items.push({ kind: "ccy", label: "💵 Mostrar em USD",  hint: "Trocar moeda", action: () => setCurrency("USD") });
+      items.push({ kind: "ccy", label: "💶 Mostrar em BRL",  hint: "Trocar moeda", action: () => setCurrency("BRL") });
+
+      // Companies (top by total spend)
+      if (typeof getCompany === "function") {
+        const all = getAllTxs();
+        const byCo = {};
+        all.forEach(t => {
+          if (t.type !== "expense") return;
+          const co = getCompany(t);
+          byCo[co] = (byCo[co] || 0) + t.debit;
+        });
+        Object.entries(byCo).sort((a, b) => b[1] - a[1]).slice(0, 50).forEach(([co, v]) => {
+          items.push({ kind: "company", label: `🏢 ${co}`, hint: `${fmt(v, { compact: true })} em despesas`, action: () => openEmpresa(co) });
+        });
+      }
+
+      return items;
+    }
+
+    function fuzzyScore(query, label) {
+      if (!query) return 1;
+      const q = query.toLowerCase(), s = label.toLowerCase();
+      if (s.includes(q)) return 10 - (s.indexOf(q) / 50);
+      // Sub-character match: every char in q appears in order in s
+      let i = 0;
+      for (const ch of s) { if (ch === q[i]) i++; if (i === q.length) break; }
+      return i === q.length ? 5 : 0;
+    }
+
+    function renderCmdkList() {
+      const list = document.getElementById("cmdk-list");
+      if (!list) return;
+      const items = CMDK_STATE.filtered;
+      if (!items.length) {
+        list.innerHTML = `<div class="t-body text-slate-500 px-4 py-6 text-center">Nenhum resultado.</div>`;
+        return;
+      }
+      // Group by kind for visual section labels
+      const labels = { nav: "Navegação", account: "Contas", period: "Período", ccy: "Moeda", company: "Empresas" };
+      const grouped = {};
+      items.forEach((it, i) => { (grouped[it.kind] = grouped[it.kind] || []).push({ ...it, _i: i }); });
+      list.innerHTML = Object.entries(grouped).map(([kind, arr]) => `
+        <div class="px-2">
+          <div class="t-caption text-slate-500 px-2 pt-2 pb-1">${labels[kind] || kind}</div>
+          ${arr.map(it => `
+            <button data-idx="${it._i}" class="cmdk-item w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-left hover:bg-slate-800/60 transition ${it._i === CMDK_STATE.idx ? "bg-slate-800/80" : ""}">
+              <span class="t-body text-slate-200 truncate">${it.label}</span>
+              <span class="t-small text-slate-500 truncate ml-2 shrink-0">${it.hint || ""}</span>
+            </button>
+          `).join("")}
+        </div>
+      `).join("");
+      // Scroll active into view
+      const active = list.querySelector(`[data-idx="${CMDK_STATE.idx}"]`);
+      if (active) active.scrollIntoView({ block: "nearest" });
+    }
+
+    function openCmdK() {
+      CMDK_STATE.items = buildCommandList();
+      CMDK_STATE.filtered = CMDK_STATE.items.slice(0, 30);
+      CMDK_STATE.idx = 0;
+      const modal = document.getElementById("modal-cmdk");
+      const input = document.getElementById("cmdk-input");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      input.value = "";
+      renderCmdkList();
+      setTimeout(() => input.focus(), 30);
+    }
+
+    function closeCmdK() {
+      const modal = document.getElementById("modal-cmdk");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function executeCmdK(idx) {
+      const it = CMDK_STATE.filtered[idx];
+      if (!it) return;
+      closeCmdK();
+      it.action();
+    }
+
+    // Wire input + keyboard
+    document.addEventListener("DOMContentLoaded", () => {
+      // No-op fallback if elements don't exist yet
+    });
+    function _wireCmdK() {
+      const input = document.getElementById("cmdk-input");
+      const modal = document.getElementById("modal-cmdk");
+      if (!input || !modal) return;
+      input.addEventListener("input", () => {
+        const q = input.value.trim();
+        const scored = CMDK_STATE.items.map(it => ({ it, s: fuzzyScore(q, it.label) }))
+                                       .filter(x => x.s > 0)
+                                       .sort((a, b) => b.s - a.s);
+        CMDK_STATE.filtered = scored.slice(0, 50).map(x => x.it);
+        CMDK_STATE.idx = 0;
+        renderCmdkList();
+      });
+      input.addEventListener("keydown", e => {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          CMDK_STATE.idx = Math.min(CMDK_STATE.idx + 1, CMDK_STATE.filtered.length - 1);
+          renderCmdkList();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          CMDK_STATE.idx = Math.max(0, CMDK_STATE.idx - 1);
+          renderCmdkList();
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          executeCmdK(CMDK_STATE.idx);
+        } else if (e.key === "Escape") {
+          closeCmdK();
+        }
+      });
+      modal.addEventListener("click", e => {
+        if (e.target === modal) closeCmdK();
+        const btn = e.target.closest("[data-idx]");
+        if (btn) executeCmdK(+btn.dataset.idx);
+      });
+    }
+    _wireCmdK();
+
+    // Global keyboard shortcuts
+    window.addEventListener("keydown", e => {
+      // Cmd+K / Ctrl+K
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        const modal = document.getElementById("modal-cmdk");
+        if (modal && modal.classList.contains("hidden")) openCmdK();
+        else closeCmdK();
+      }
+      // "/" focuses search if visible
+      if (e.key === "/" && !["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) {
+        const search = document.getElementById("tx-search");
+        if (search && currentView === "transacoes") {
+          e.preventDefault();
+          search.focus();
+        }
+      }
+    });
+
+    // ============================================================
+    // KPI delta pills (vs previous comparable period)
+    // ============================================================
+    function updateKPIDeltas(curTxs, current) {
+      // Determine previous-period range based on current startMonth/endMonth
+      const setPill = (id, delta, betterIsHigher) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        // Hide on missing, infinite, or absurdly large deltas (signal noise — uneven data)
+        if (delta == null || !isFinite(delta) || Math.abs(delta) > 999) {
+          el.classList.add("hidden");
+          return;
+        }
+        const sign = delta >= 0 ? "+" : "";
+        const isGood = betterIsHigher ? delta >= 0 : delta <= 0;
+        el.textContent = `${sign}${delta.toFixed(1)}% vs ant.`;
+        el.classList.remove("hidden");
+        el.className = `num text-[11px] font-semibold px-1.5 py-0.5 rounded-md ${
+          isGood ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+        }`;
+      };
+
+      // Compute previous period
+      let prevStart = null, prevEnd = null;
+      if (startMonth && endMonth) {
+        // Same length window immediately before
+        const monthsBetween = (a, b) => {
+          const [ay, am] = a.split("-").map(Number);
+          const [by, bm] = b.split("-").map(Number);
+          return (by - ay) * 12 + (bm - am);
+        };
+        const len = monthsBetween(startMonth, endMonth) + 1;
+        const [sy, sm] = startMonth.split("-").map(Number);
+        const dPrevEnd   = new Date(sy, sm - 2, 1);   // month before startMonth
+        const dPrevStart = new Date(sy, sm - 1 - len, 1);
+        const fmt2 = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+        prevStart = fmt2(dPrevStart);
+        prevEnd   = fmt2(dPrevEnd);
+      } else {
+        // No filter: compare last available month vs previous
+        const all = getAllTxs();
+        const months = [...new Set(all.map(t => t.date.slice(0,7)))].sort();
+        if (months.length < 2) {
+          ["kpi-income-delta", "kpi-expense-delta", "kpi-net-delta"].forEach(id => setPill(id, null));
+          return;
+        }
+        prevStart = prevEnd = months.at(-2);
+      }
+
+      const allAccounts = (selectedAccounts.size === 0
+        ? state.accounts
+        : state.accounts.filter(a => selectedAccounts.has(a.id)));
+      let prevTxs = [];
+      allAccounts.forEach(a => a.transactions.forEach(t => {
+        const m = t.date.slice(0,7);
+        if (m >= prevStart && m <= prevEnd) prevTxs.push(t);
+      }));
+
+      let pIncome = 0, pExpense = 0, pRefund = 0;
+      prevTxs.forEach(t => {
+        if (t.type === "income")       pIncome  += t.credit;
+        else if (t.type === "expense") pExpense += t.debit;
+        else if (t.type === "refund")  pRefund  += t.credit;
+      });
+      const pNetExpense = pExpense - pRefund;
+      const pNet        = pIncome - pNetExpense;
+
+      const pct = (cur, prev) => prev !== 0 ? ((cur - prev) / Math.abs(prev)) * 100 : null;
+      setPill("kpi-income-delta",  pct(current.income,     pIncome),     true);   // mais é melhor
+      setPill("kpi-expense-delta", pct(current.netExpense, pNetExpense), false);  // menos é melhor
+      setPill("kpi-net-delta",     pct(current.net,        pNet),        true);   // mais é melhor
+    }
+
+    // ============================================================
+    // Sidebar accounts (dynamic)
+    // ============================================================
+    function renderSidebarAccounts() {
+      const container = document.getElementById("sidebar-accounts");
+      if (!container || !state.accounts.length) return;
+      container.innerHTML = state.accounts.map(a => `
+        <button id="nav-conta-${a.id}" onclick="switchView('conta', { accountId: '${a.id}' })" class="nav-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+            <rect x="2" y="6" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
+          </svg>
+          <span class="truncate">${a.name}</span>
+        </button>
+      `).join("");
+    }
+
+    // ============================================================
+    // Reusable card builders
+    // ============================================================
+    function kpiCard(label, value, sub, valueColor = "slate-200") {
+      return `
+        <div class="surface surface-hover p-5 animate-fade-in">
+          <div class="t-caption">${label}</div>
+          <div class="num text-2xl font-semibold mt-1 text-${valueColor}">${value}</div>
+          <div class="t-small text-slate-500 mt-1">${sub || ""}</div>
+        </div>
+      `;
+    }
+
+    // ============================================================
+    // View: Saúde Financeira
+    // ============================================================
+    function renderSaude() {
+      const container = document.getElementById("saude-content");
+      if (!container) return;
+      const txs = getFilteredTxs();
+
+      // Aggregate by month (always use last 12 of available data for stable averages)
+      const byMonth = {};
+      txs.forEach(t => {
+        const m = t.date.slice(0, 7);
+        if (!byMonth[m]) byMonth[m] = { income: 0, expense: 0, refund: 0 };
+        if (t.type === "income")       byMonth[m].income  += t.credit;
+        else if (t.type === "expense") byMonth[m].expense += t.debit;
+        else if (t.type === "refund")  byMonth[m].refund  += t.credit;
+      });
+      const months = Object.keys(byMonth).sort();
+      if (!months.length) {
+        container.innerHTML = `
+          <div class="mb-6"><h1 class="t-h1">Saúde Financeira</h1></div>
+          <div class="t-body text-slate-500 text-center py-16 surface">Sem dados no período selecionado.</div>
+        `;
+        return;
+      }
+
+      const recentMonths  = months.slice(-12);
+      const recentIncome  = recentMonths.map(m => byMonth[m].income);
+      const recentExpense = recentMonths.map(m => byMonth[m].expense - byMonth[m].refund);
+      const recentNet     = recentMonths.map((_, i) => recentIncome[i] - recentExpense[i]);
+      const avgIncome     = recentIncome.reduce((s, v) => s + v, 0)  / recentMonths.length;
+      const avgExpense    = recentExpense.reduce((s, v) => s + v, 0) / recentMonths.length;
+      const avgMargin     = avgIncome > 0 ? ((avgIncome - avgExpense) / avgIncome) * 100 : 0;
+
+      // Saldo atual (sanity-clamped for absurd values)
+      const SANE = 1e9;
+      const totalSaldo = state.accounts.reduce((s, a) => {
+        const last = a.transactions.at(-1);
+        if (!last) return s;
+        return Math.abs(last.runningBalance || 0) > SANE ? s : s + (last.runningBalance || 0);
+      }, 0);
+      const runway = avgExpense > 0 ? totalSaldo / avgExpense : null;
+
+      // Top categorias (mês atual vs trimestre anterior)
+      const lastM    = recentMonths.at(-1);
+      const last3    = recentMonths.slice(-4, -1);
+      const byCatLast = {};
+      const byCatPrev = {};
+      txs.forEach(t => {
+        if (t.type !== "expense") return;
+        const m = t.date.slice(0, 7);
+        if (m === lastM)         byCatLast[t.category] = (byCatLast[t.category] || 0) + t.debit;
+        else if (last3.includes(m)) byCatPrev[t.category] = (byCatPrev[t.category] || 0) + t.debit;
+      });
+      const movers = Object.keys({...byCatLast, ...byCatPrev}).map(cat => {
+        const cur = byCatLast[cat] || 0;
+        const prevAvg = (byCatPrev[cat] || 0) / 3;
+        const delta = prevAvg > 0 ? ((cur - prevAvg) / prevAvg) * 100 : (cur > 0 ? 100 : 0);
+        return { cat, cur, prevAvg, delta };
+      }).filter(m => m.cur > 100 || m.prevAvg > 100);
+      const growing  = movers.filter(m => m.delta > 0).sort((a, b) => b.delta - a.delta).slice(0, 5);
+      const shrinking = movers.filter(m => m.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 5);
+
+      const runwayColor = runway == null ? "slate-300" : runway > 12 ? "emerald-400" : runway > 6 ? "amber-400" : "rose-400";
+      const marginColor = avgMargin >= 30 ? "emerald-400" : avgMargin >= 0 ? "amber-400" : "rose-400";
+
+      container.innerHTML = `
+        <div class="mb-6">
+          <h1 class="t-h1">Saúde Financeira</h1>
+          <p class="t-small text-slate-400 mt-0.5">Cash flow, runway e tendências dos últimos ${recentMonths.length} meses</p>
+        </div>
+
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          ${kpiCard("Receita / mês", fmt(avgIncome), `média de ${recentMonths.length}m`, "emerald-400")}
+          ${kpiCard("Despesa / mês", fmt(avgExpense), "burn mensal médio", "rose-400")}
+          ${kpiCard("Runway", runway == null ? "—" : `${runway.toFixed(1)} m`, "saldo / burn médio", runwayColor)}
+          ${kpiCard("Margem média", `${avgMargin.toFixed(1)}%`, "(receita − despesa) / receita", marginColor)}
+        </section>
+
+        <section class="surface p-5">
+          <h2 class="t-h2 mb-4">Cash Flow — últimos ${recentMonths.length} meses</h2>
+          <div style="height:340px"><canvas id="chart-cashflow"></canvas></div>
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="surface p-5">
+            <h2 class="t-h2 mb-4 flex items-center gap-2">
+              <span class="text-rose-400">↗</span> Categorias crescendo
+            </h2>
+            <div class="space-y-2">
+              ${growing.length ? growing.map(m => trendRow(m, "rose")).join("") : '<div class="t-small text-slate-500">Sem categorias com aumento relevante.</div>'}
+            </div>
+          </div>
+          <div class="surface p-5">
+            <h2 class="t-h2 mb-4 flex items-center gap-2">
+              <span class="text-emerald-400">↘</span> Categorias caindo
+            </h2>
+            <div class="space-y-2">
+              ${shrinking.length ? shrinking.map(m => trendRow(m, "emerald")).join("") : '<div class="t-small text-slate-500">Sem categorias com queda relevante.</div>'}
+            </div>
+          </div>
+        </section>
+      `;
+
+      // Cash flow chart
+      const compactFmt = v => fmt(v, { compact: true });
+      if (charts.cashflow) charts.cashflow.destroy();
+      charts.cashflow = new Chart(document.getElementById("chart-cashflow"), {
+        type: "bar",
+        data: {
+          labels: recentMonths.map(monthName),
+          datasets: [
+            { label: "Receita", data: recentIncome, backgroundColor: "rgba(16,185,129,0.75)", borderRadius: 4 },
+            { label: "Despesa", data: recentExpense.map(v => -v), backgroundColor: "rgba(244,63,94,0.75)", borderRadius: 4 },
+            { label: "Net", type: "line", data: recentNet, borderColor: "#f1f5f9", backgroundColor: "#f1f5f9", borderWidth: 2, pointRadius: 3, fill: false, tension: 0.3 },
+          ],
+        },
+        options: {
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: "index" },
+          scales: {
+            x: { stacked: false, grid: { color: "rgba(30,41,59,0.4)" } },
+            y: { ticks: { callback: v => compactFmt(v) }, grid: { color: "rgba(30,41,59,0.4)" } },
+          },
+          plugins: {
+            tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmt(Math.abs(c.parsed.y))}` } },
+          },
+        },
+      });
+    }
+
+    function trendRow(m, baseColor) {
+      const sign = m.delta >= 0 ? "+" : "";
+      const colorCls = baseColor === "rose" ? "text-rose-400" : "text-emerald-400";
+      return `
+        <div class="flex items-center justify-between gap-3 t-body">
+          <span class="text-slate-300 truncate flex-1">${m.cat}</span>
+          <span class="num text-slate-400 shrink-0">${fmt(m.cur)}</span>
+          <span class="num font-semibold ${colorCls} w-16 text-right shrink-0">${sign}${m.delta.toFixed(0)}%</span>
+        </div>
+      `;
+    }
+
+    // ============================================================
+    // View: Conta (per-account dashboard)
+    // ============================================================
+    function renderConta(accId) {
+      const container = document.getElementById("conta-content");
+      const acc = state.accounts.find(a => a.id === accId);
+      if (!container || !acc) return;
+
+      // Apply period filter (account is forced by the view)
+      let txs = acc.transactions.map(t => ({ ...t, account: acc.name }));
+      if (startMonth && endMonth) {
+        txs = txs.filter(t => { const m = t.date.slice(0, 7); return m >= startMonth && m <= endMonth; });
+      } else if (startMonth) {
+        txs = txs.filter(t => t.date.startsWith(startMonth));
+      }
+
+      let income = 0, expense = 0, refund = 0;
+      txs.forEach(t => {
+        if (t.type === "income")       income  += t.credit;
+        else if (t.type === "expense") expense += t.debit;
+        else if (t.type === "refund")  refund  += t.credit;
+      });
+      const netExpense = expense - refund;
+      const net = income - netExpense;
+
+      const SANE = 1e9;
+      // Walk backwards through transactions to find the most recent sane balance.
+      // Some imports (LootRush crypto) have absurd balances on the last row.
+      let lastBal = null;
+      for (let i = acc.transactions.length - 1; i >= 0; i--) {
+        const bal = acc.transactions[i].runningBalance;
+        if (bal != null && Math.abs(bal) <= SANE) { lastBal = bal; break; }
+      }
+
+      // Top empresas no período
+      const byCompany = {};
+      if (typeof getCompany === "function") {
+        txs.forEach(t => {
+          if (t.type !== "expense") return;
+          const co = getCompany(t);
+          byCompany[co] = (byCompany[co] || 0) + t.debit;
+        });
+      }
+      const topCompanies = Object.entries(byCompany).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+      // Movimentação por mês
+      const byMonth = {};
+      txs.forEach(t => {
+        const m = t.date.slice(0, 7);
+        if (!byMonth[m]) byMonth[m] = { income: 0, expense: 0 };
+        if (t.type === "income")       byMonth[m].income  += t.credit;
+        else if (t.type === "expense") byMonth[m].expense += t.debit;
+        else if (t.type === "refund")  byMonth[m].expense -= t.credit;
+      });
+      const months = Object.keys(byMonth).sort();
+
+      container.innerHTML = `
+        <div class="mb-6 flex items-end justify-between flex-wrap gap-3">
+          <div>
+            <h1 class="t-h1">${acc.name}</h1>
+            <p class="t-small text-slate-400 mt-0.5">
+              ${acc.transactions.length.toLocaleString("pt-BR")} transações totais
+              ${txs.length !== acc.transactions.length ? `· ${txs.length.toLocaleString("pt-BR")} no período filtrado` : ""}
+            </p>
+          </div>
+          ${lastBal != null ? `
+            <div class="text-right">
+              <div class="t-caption">Saldo atual</div>
+              <div class="num text-2xl font-semibold ${lastBal >= 0 ? "text-emerald-400" : "text-rose-400"}">${fmt(lastBal)}</div>
+            </div>
+          ` : ""}
+        </div>
+
+        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          ${kpiCard("Receita", fmt(income), `${txs.filter(t => t.type === "income").length} entradas`, "emerald-400")}
+          ${kpiCard("Despesa Líquida", fmt(netExpense), `${txs.filter(t => t.type === "expense").length} cobranças`, "rose-400")}
+          ${kpiCard("Resultado", fmt(net), "Receita − Despesa", net >= 0 ? "emerald-400" : "rose-400")}
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="surface p-5 lg:col-span-2">
+            <h2 class="t-h2 mb-4">Movimentação por mês</h2>
+            <div style="height:300px"><canvas id="chart-conta-monthly"></canvas></div>
+          </div>
+          <div class="surface p-5">
+            <h2 class="t-h2 mb-4">Top empresas (gasto)</h2>
+            <div class="space-y-2 max-h-[300px] overflow-y-auto scroll-thin pr-1">
+              ${topCompanies.length ? topCompanies.map(([co, v]) => `
+                <div class="flex items-center justify-between gap-3 t-body">
+                  <span class="text-slate-300 truncate flex-1">${co}</span>
+                  <span class="num text-rose-400 shrink-0">${fmt(v)}</span>
+                </div>
+              `).join("") : '<div class="t-small text-slate-500">Sem dados no período.</div>'}
+            </div>
+          </div>
+        </section>
+      `;
+
+      const compactFmt = v => fmt(v, { compact: true });
+      if (charts.contaMonthly) charts.contaMonthly.destroy();
+      charts.contaMonthly = new Chart(document.getElementById("chart-conta-monthly"), {
+        type: "bar",
+        data: {
+          labels: months.map(monthName),
+          datasets: [
+            { label: "Receita", data: months.map(m => byMonth[m].income),  backgroundColor: "rgba(16,185,129,0.75)", borderRadius: 4 },
+            { label: "Despesa", data: months.map(m => -byMonth[m].expense), backgroundColor: "rgba(244,63,94,0.75)", borderRadius: 4 },
+          ],
+        },
+        options: {
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: "index" },
+          scales: {
+            x: { grid: { color: "rgba(30,41,59,0.4)" } },
+            y: { ticks: { callback: v => compactFmt(v) }, grid: { color: "rgba(30,41,59,0.4)" } },
+          },
+          plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmt(Math.abs(c.parsed.y))}` } } },
+        },
+      });
+    }
+
+    // ============================================================
+    // View: Empresa (merchant drill-down)
+    // ============================================================
+    function renderEmpresa(companyName) {
+      const container = document.getElementById("empresa-content");
+      if (!container) return;
+      const all = getAllTxs();
+      const txs = all.filter(t => {
+        if (typeof getCompany !== "function") return (t.merchant === companyName);
+        return getCompany(t) === companyName;
+      });
+      if (!txs.length) {
+        container.innerHTML = `
+          <div class="mb-6"><h1 class="t-h1">${companyName}</h1></div>
+          <div class="surface p-12 text-center t-body text-slate-500">Nenhuma transação encontrada para esta empresa.</div>
+        `;
+        return;
+      }
+
+      let income = 0, expense = 0, refund = 0;
+      const byMonth = {};
+      const accountsTouched = new Set();
+      txs.forEach(t => {
+        if (t.type === "income")       income  += t.credit;
+        else if (t.type === "expense") expense += t.debit;
+        else if (t.type === "refund")  refund  += t.credit;
+        const m = t.date.slice(0, 7);
+        if (!byMonth[m]) byMonth[m] = { income: 0, expense: 0 };
+        if (t.type === "income")       byMonth[m].income  += t.credit;
+        else if (t.type === "expense") byMonth[m].expense += t.debit;
+        else if (t.type === "refund")  byMonth[m].expense -= t.credit;
+        accountsTouched.add(t.account);
+      });
+      const months = Object.keys(byMonth).sort();
+      const firstDate = txs.map(t => t.date).sort()[0];
+      const lastDate  = txs.map(t => t.date).sort().at(-1);
+      const monthsActive = months.length;
+      const avgPerMonth = expense / Math.max(1, monthsActive);
+      const isExpenseDominant = expense > income;
+
+      // Last N transactions
+      const recent = [...txs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 100);
+
+      container.innerHTML = `
+        <div class="mb-6">
+          <button onclick="history.length > 1 ? history.back() : switchView('home')" class="t-small text-slate-400 hover:text-slate-200 transition mb-2 flex items-center gap-1">← voltar</button>
+          <h1 class="t-h1">${companyName}</h1>
+          <p class="t-small text-slate-400 mt-0.5">
+            ${txs.length.toLocaleString("pt-BR")} transação(ões) ·
+            ${monthsActive} meses ativos ·
+            ${[...accountsTouched].join(", ") || "—"} ·
+            primeira em ${dateBR(firstDate)} · última em ${dateBR(lastDate)}
+          </p>
+        </div>
+
+        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          ${kpiCard(
+            isExpenseDominant ? "Total gasto" : "Total recebido",
+            fmt(isExpenseDominant ? expense - refund : income),
+            `lifetime · ${txs.length} transações`,
+            isExpenseDominant ? "rose-400" : "emerald-400"
+          )}
+          ${kpiCard("Média mensal", fmt(avgPerMonth), `em ${monthsActive} meses ativos`, "slate-200")}
+          ${kpiCard("Última cobrança", dateBR(lastDate), monthsAgo(lastDate) === 0 ? "este mês" : `${monthsAgo(lastDate)}m atrás`, "slate-200")}
+        </section>
+
+        <section class="surface p-5">
+          <h2 class="t-h2 mb-4">Movimentação por mês</h2>
+          <div style="height:280px"><canvas id="chart-empresa-monthly"></canvas></div>
+        </section>
+
+        <section class="surface overflow-hidden">
+          <div class="px-5 py-4 border-b border-slate-800">
+            <h2 class="t-h2">Transações${txs.length > 100 ? ` (mostrando 100 mais recentes de ${txs.length})` : ""}</h2>
+          </div>
+          <div class="overflow-x-auto scroll-thin max-h-[560px]">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-950 sticky top-0 t-caption">
+                <tr>
+                  <th class="px-4 py-3 text-left">Data</th>
+                  <th class="px-4 py-3 text-left">Conta</th>
+                  <th class="px-4 py-3 text-left">Descrição</th>
+                  <th class="px-4 py-3 text-right">Receita</th>
+                  <th class="px-4 py-3 text-right">Despesa</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800">
+                ${recent.map(t => `
+                  <tr class="hover:bg-slate-800/30 transition-colors">
+                    <td class="px-4 py-2.5 text-slate-400 num">${dateBR(t.date)}</td>
+                    <td class="px-4 py-2.5 text-slate-400">${t.account || ""}</td>
+                    <td class="px-4 py-2.5 text-slate-300 truncate max-w-md" title="${(t.description || "").replace(/"/g, "&quot;")}">${t.description || ""}</td>
+                    <td class="px-4 py-2.5 num text-right ${t.credit > 0 ? "text-emerald-400" : "text-slate-600"}">${t.credit > 0 ? fmt(t.credit) : "—"}</td>
+                    <td class="px-4 py-2.5 num text-right ${t.debit > 0 ? "text-rose-400" : "text-slate-600"}">${t.debit > 0 ? fmt(t.debit) : "—"}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      `;
+
+      const compactFmt = v => fmt(v, { compact: true });
+      if (charts.empresaMonthly) charts.empresaMonthly.destroy();
+      charts.empresaMonthly = new Chart(document.getElementById("chart-empresa-monthly"), {
+        type: "bar",
+        data: {
+          labels: months.map(monthName),
+          datasets: [
+            { label: "Receita", data: months.map(m => byMonth[m].income),  backgroundColor: "rgba(16,185,129,0.75)", borderRadius: 4 },
+            { label: "Despesa", data: months.map(m => -byMonth[m].expense), backgroundColor: "rgba(244,63,94,0.75)", borderRadius: 4 },
+          ],
+        },
+        options: {
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: "index" },
+          scales: {
+            x: { grid: { color: "rgba(30,41,59,0.4)" } },
+            y: { ticks: { callback: v => compactFmt(v) }, grid: { color: "rgba(30,41,59,0.4)" } },
+          },
+          plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmt(Math.abs(c.parsed.y))}` } } },
+        },
+      });
+    }
+
+    // ============================================================
+    // View: Assinaturas (recurring detection)
+    // ============================================================
+    function renderAssinaturas() {
+      const container = document.getElementById("assinaturas-content");
+      if (!container) return;
+      const txs = getAllTxs().filter(t => t.type === "expense");
+
+      const byCo = {};
+      txs.forEach(t => {
+        const co = (typeof getCompany === "function") ? getCompany(t) : (t.merchant || (t.description || "").slice(0, 30) || "Outros");
+        if (!byCo[co]) byCo[co] = [];
+        byCo[co].push(t);
+      });
+
+      const subs = [];
+      Object.entries(byCo).forEach(([co, ts]) => {
+        const months = [...new Set(ts.map(t => t.date.slice(0, 7)))];
+        if (months.length < 3) return;
+        const amounts = ts.map(t => t.debit);
+        const avg = amounts.reduce((s, v) => s + v, 0) / amounts.length;
+        if (avg < 1) return; // ignore micro charges
+        const consistent = amounts.filter(a => Math.abs(a - avg) <= avg * 0.4).length;
+        if (consistent / amounts.length < 0.5) return;
+        const lastDate = ts.map(t => t.date).sort().at(-1);
+        subs.push({
+          company: co, count: ts.length, months: months.length,
+          avg, total: amounts.reduce((s, v) => s + v, 0),
+          lastDate, monthsSinceLast: monthsAgo(lastDate),
+          yearlyEstimate: avg * 12,
+          active: monthsAgo(lastDate) <= 2,
+        });
+      });
+      subs.sort((a, b) => b.yearlyEstimate - a.yearlyEstimate);
+
+      const active = subs.filter(s => s.active);
+      const monthlyTotal = active.reduce((s, sub) => s + sub.avg, 0);
+      const inactiveCost = subs.filter(s => !s.active).reduce((s, sub) => s + sub.avg, 0);
+
+      container.innerHTML = `
+        <div class="mb-6">
+          <h1 class="t-h1">Assinaturas</h1>
+          <p class="t-small text-slate-400 mt-0.5">Cobranças recorrentes detectadas (≥3 meses, valor consistente ±40%)</p>
+        </div>
+
+        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          ${kpiCard("Total / mês", fmt(monthlyTotal), `${active.length} assinaturas ativas`, "rose-400")}
+          ${kpiCard("Projeção anual", fmt(monthlyTotal * 12), "se mantido o ritmo", "rose-400")}
+          ${kpiCard("Inativas", fmt(inactiveCost), `${subs.length - active.length} sem cobrança >2m`, "slate-400")}
+        </section>
+
+        <section class="surface overflow-hidden">
+          <div class="overflow-x-auto scroll-thin">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-950 t-caption">
+                <tr>
+                  <th class="px-5 py-3 text-left">Empresa</th>
+                  <th class="px-5 py-3 text-right">Valor médio</th>
+                  <th class="px-5 py-3 text-right">Cobranças</th>
+                  <th class="px-5 py-3 text-right">Última</th>
+                  <th class="px-5 py-3 text-right">Total pago</th>
+                  <th class="px-5 py-3 text-right">Anual estimado</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800">
+                ${subs.length ? subs.map(s => `
+                  <tr class="hover:bg-slate-800/30 transition-colors">
+                    <td class="px-5 py-3">
+                      <div class="font-medium text-slate-200">${s.company}</div>
+                      <div class="t-small ${s.active ? "text-emerald-500" : "text-slate-600"}">
+                        ${s.active ? "● Ativa" : "○ Inativa há " + s.monthsSinceLast + "m"}
+                      </div>
+                    </td>
+                    <td class="num px-5 py-3 text-right text-rose-400">${fmt(s.avg)}</td>
+                    <td class="num px-5 py-3 text-right text-slate-400">${s.count}× em ${s.months}m</td>
+                    <td class="num px-5 py-3 text-right text-slate-400">${dateBR(s.lastDate)}</td>
+                    <td class="num px-5 py-3 text-right text-slate-300">${fmt(s.total)}</td>
+                    <td class="num px-5 py-3 text-right text-rose-300 font-semibold">${fmt(s.yearlyEstimate)}</td>
+                  </tr>
+                `).join("") : '<tr><td colspan="6" class="px-5 py-8 text-center text-slate-500">Nenhuma assinatura recorrente detectada.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      `;
+    }
+
+    function monthsAgo(isoDate) {
+      const today = new Date();
+      const date  = new Date(isoDate + "T00:00:00");
+      return (today.getFullYear() - date.getFullYear()) * 12 + (today.getMonth() - date.getMonth());
+    }
+
+    // ============================================================
+    // KPI secondary line (async, called after render)
+    // Shows the *other* currency under each main KPI value.
     // ============================================================
     async function updateKPIsBRL(income, netExpense, net) {
       const today = new Date().toISOString().slice(0, 10);
       const pt = await fetchPTAX(today);
       if (!pt) return;
-      const r = pt.rate;
+      // Populate the global rate so fmt() can convert anywhere
+      FX_RATE_BRL      = pt.rate;
+      FX_RATE_BRL_DATE = pt.date;
+      // Sync the toggle button state once the rate is available
+      const wrap = document.getElementById("ccy-toggle");
+      if (wrap) wrap.classList.toggle("is-brl", CURRENCY === "BRL");
+
       const kpiIncomeBRL  = document.getElementById("kpi-income-brl");
       const kpiExpenseBRL = document.getElementById("kpi-expense-brl");
       const kpiNetBRL     = document.getElementById("kpi-net-brl");
-      if (kpiIncomeBRL)  kpiIncomeBRL.textContent  = fmtBRLK(income     * r);
-      if (kpiExpenseBRL) kpiExpenseBRL.textContent  = fmtBRLK(netExpense * r);
+
+      // Secondary line shows the OTHER currency (USD if BRL active, BRL otherwise)
+      const otherCcy = CURRENCY === "USD" ? "BRL" : "USD";
+      if (kpiIncomeBRL)  kpiIncomeBRL.textContent  = fmt(income,     { as: otherCcy, compact: true });
+      if (kpiExpenseBRL) kpiExpenseBRL.textContent = fmt(netExpense, { as: otherCcy, compact: true });
       if (kpiNetBRL) {
-        kpiNetBRL.textContent  = fmtBRLK(net * r);
+        kpiNetBRL.textContent = fmt(net, { as: otherCcy, compact: true });
         kpiNetBRL.className = "num text-xs mt-0.5 h-4 " + (net >= 0 ? "text-emerald-700" : "text-rose-800");
+      }
+    }
+
+    // ============================================================
+    // Controle de Caixa
+    // ============================================================
+    const caixaState = {
+      loaded: false,
+      accounts: [],   // [{id, name, currency}]
+      snapshots: [],  // [{date, ptaxUsd, ptaxEur, balances: {accId: number}}]
+    };
+
+    const CAIXA_DEFAULT_ACCOUNTS = [
+      { name: "Conta simples (limite)",         currency: "BRL" },
+      { name: "Conta simples (saldo)",          currency: "BRL" },
+      { name: "Sicoob (saldo)",                 currency: "BRL" },
+      { name: "Digistore24 (Fornecedor- EURO)", currency: "EUR" },
+      { name: "Digistore24 (Full Acess- EURO)", currency: "EUR" },
+      { name: "Payoneer CNPJ",                  currency: "USD" },
+      { name: "Payoneer LLP",                   currency: "USD" },
+      { name: "LootRush LLP",                   currency: "USD" },
+      { name: "Wise CNPJ",                      currency: "USD" },
+      { name: "Wise LLP",                       currency: "USD" },
+      { name: "Contas - Hotmart",               currency: "BRL" },
+      { name: "Cartpanda - Afiliados",          currency: "USD" },
+      { name: "Cartpanda - Renda Extra",        currency: "USD" },
+      { name: "Cartpanda - Saúde Masculina",    currency: "USD" },
+      { name: "Digistore24",                    currency: "EUR" },
+      { name: "Buygoods",                       currency: "USD" },
+    ];
+
+    function caixaUid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
+
+    function caixaParseNumber(raw) {
+      if (raw == null) return null;
+      const s = String(raw).trim();
+      if (!s) return null;
+      // Aceita "9.660.192,72" ou "9660192.72" ou "9660192,72"
+      const cleaned = s.replace(/\s/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".");
+      const n = parseFloat(cleaned);
+      return isNaN(n) ? null : n;
+    }
+
+    function caixaFormatNumber(n) {
+      if (n == null || isNaN(n)) return "";
+      return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    async function caixaLoad() {
+      if (caixaState.loaded) return;
+      try {
+        const r = await fetch("/caixa");
+        if (r.ok) {
+          const data = await r.json();
+          if (data && data.accounts && data.accounts.length) {
+            caixaState.accounts = data.accounts;
+            caixaState.snapshots = data.snapshots || [];
+          }
+        }
+      } catch {}
+      if (!caixaState.accounts.length) {
+        caixaState.accounts = CAIXA_DEFAULT_ACCOUNTS.map(a => ({ ...a, id: caixaUid() }));
+      }
+      caixaState.loaded = true;
+    }
+
+    let caixaSaveTimer = null;
+    function caixaSaveSoon() {
+      clearTimeout(caixaSaveTimer);
+      caixaSaveTimer = setTimeout(() => {
+        if (!SERVER_MODE) return;
+        fetch("/caixa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accounts: caixaState.accounts, snapshots: caixaState.snapshots })
+        }).catch(() => {});
+      }, 400);
+    }
+
+    function caixaToBRL(value, currency, snap) {
+      if (value == null) return 0;
+      if (currency === "BRL") return value;
+      if (currency === "USD") return value * (snap.ptaxUsd || 0);
+      if (currency === "EUR") return value * (snap.ptaxEur || 0);
+      return value;
+    }
+
+    function caixaSnapshotTotal(snap) {
+      return caixaState.accounts.reduce((sum, acc) => {
+        const v = snap.balances[acc.id];
+        return sum + caixaToBRL(v, acc.currency, snap);
+      }, 0);
+    }
+
+    async function renderCaixa() {
+      const el = document.getElementById("caixa-content");
+      if (!caixaState.loaded) {
+        el.innerHTML = '<div class="text-center py-16 text-slate-500 text-sm">Carregando...</div>';
+        await caixaLoad();
+      }
+
+      // Auto-fetch contas com API (silencioso, uma vez por abertura da view)
+      if (!caixaState._autoFetchedThisOpen) {
+        caixaState._autoFetchedThisOpen = true;
+        caixaAutoFetchLootrush().catch(() => {});
+        caixaAutoFetchWiseCnpj().catch(() => {});
+        caixaAutoFetchWiseLlp().catch(() => {});
+        caixaAutoFetchBuyGoodsPending().catch(() => {});
+      }
+
+      const accs = caixaState.accounts;
+      const snapsAsc = [...caixaState.snapshots].sort((a, b) => a.date.localeCompare(b.date));
+      const snapsDesc = [...snapsAsc].reverse();
+      const totals = snapsAsc.map(caixaSnapshotTotal);
+
+      const fmtUSD = n => "$" + (n || 0).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      const liveDotInline = `<span class="relative flex h-1.5 w-1.5 mr-1"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span></span>`;
+      const liveLines = [];
+      const lr = caixaState._lootrushLastFetch;
+      if (lr) {
+        liveLines.push(`<p class="t-small text-emerald-400/80 mt-1 flex items-center gap-1.5">
+          ${liveDotInline}LootRush live: ${fmtUSD(lr.total)}
+          <span class="text-slate-500">(${fmtUSD(lr.wallet)} wallet + ${fmtUSD(lr.cards)} cards)</span>
+          <span class="text-slate-600">· ${new Date(lr.at).toLocaleTimeString("pt-BR", {hour: "2-digit", minute: "2-digit"})}</span>
+        </p>`);
+      }
+      const wc = caixaState._wiseLastFetch?.cnpj;
+      if (wc) {
+        const breakdown = (wc.balances || []).filter(b => b.amount != 0).map(b => `${b.currency} ${b.amount.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`).join(" + ") || "vazia";
+        liveLines.push(`<p class="t-small text-emerald-400/80 mt-1 flex items-center gap-1.5">
+          ${liveDotInline}Wise CNPJ live: ${fmtUSD(wc.total)}
+          <span class="text-slate-500">(${escapeHtml(wc.profile || "?")} · ${breakdown})</span>
+          <span class="text-slate-600">· ${new Date(wc.at).toLocaleTimeString("pt-BR", {hour: "2-digit", minute: "2-digit"})}</span>
+        </p>`);
+      }
+      const wl = caixaState._sourcesLastFetch?.wiseLlp;
+      if (wl) {
+        const bals = wl.meta?.balances || [];
+        const breakdown = bals.filter(b => b.amount > 0.01).map(b => `${b.currency} ${b.amount.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`).join(" + ") || "vazia";
+        liveLines.push(`<p class="t-small text-emerald-400/80 mt-1 flex items-center gap-1.5">
+          ${liveDotInline}Wise LLP live: ${fmtUSD(wl.total)}
+          <span class="text-slate-500">(${escapeHtml(wl.meta?.profile || "?")} · ${breakdown})</span>
+          <span class="text-slate-600">· ${new Date(wl.at).toLocaleTimeString("pt-BR", {hour: "2-digit", minute: "2-digit"})}</span>
+        </p>`);
+      }
+      const bg = caixaState._sourcesLastFetch?.buygoodsPending;
+      if (bg) {
+        const sinceTxt = bg.last_payout && bg.last_payout > "1970"
+          ? `desde último payout ${new Date(bg.last_payout).toLocaleString("pt-BR", {day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"})}`
+          : "desde o início";
+        const markedTxt = bg.auto_marked ? ` · payout marcado automaticamente ${new Date(bg.auto_marked).toLocaleString("pt-BR", {day:"2-digit", month:"2-digit"})}` : "";
+        const manual = bg.manual_adjustment || 0;
+        const sales = bg.sales || 0;
+        let breakdown = "";
+        if (manual > 0 && sales > 0)      breakdown = `${bg.count} venda${bg.count === 1 ? "" : "s"} ${fmtUSD(sales)} + baseline ${fmtUSD(manual)}`;
+        else if (manual > 0)              breakdown = `baseline manual ${fmtUSD(manual)}${bg.manual_note ? " · " + escapeHtml(bg.manual_note) : ""}`;
+        else                              breakdown = `${bg.count} venda${bg.count === 1 ? "" : "s"}`;
+        liveLines.push(`<p class="t-small text-amber-400/80 mt-1 flex items-center gap-1.5 flex-wrap">
+          <span class="relative flex h-1.5 w-1.5 mr-1"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span></span>
+          BuyGoods a receber: ${fmtUSD(bg.pending)}
+          <span class="text-slate-500">(${breakdown} · ${sinceTxt}${markedTxt})</span>
+          <span class="text-slate-600">· ${new Date(bg.at).toLocaleTimeString("pt-BR", {hour: "2-digit", minute: "2-digit"})}</span>
+          <button onclick="caixaAdjustBuyGoods()" class="ml-2 inline-flex items-center gap-1 text-xs text-amber-300/90 hover:text-amber-200 underline decoration-dotted">Ajustar baseline</button>
+        </p>`);
+      }
+      const lrInfo = liveLines.join("");
+      let html = `
+        <div class="flex items-end justify-between flex-wrap gap-3">
+          <div>
+            <h1 class="t-h1">Controle de Caixa</h1>
+            <p class="t-small text-slate-400 mt-0.5">Snapshots manuais do caixa por conta · seg/qua/sex · cotação BRL p/ USD e EUR</p>
+            ${lrInfo}
+          </div>
+          <div class="flex items-center gap-2 no-print">
+            <button onclick="caixaAddSnapshot()" class="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg px-3 py-1.5 text-xs text-white font-medium transition">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Novo snapshot
+            </button>
+            <button id="caixa-fetch-lootrush-btn" onclick="caixaFetchLootrush()" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg px-3 py-1.5 text-xs text-white font-medium transition">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              Buscar LootRush
+            </button>
+            <button onclick="caixaManageAccounts()" class="inline-flex items-center gap-1.5 bg-slate-800 border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 text-xs text-slate-300 hover:text-white transition">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              Gerenciar contas
+            </button>
+          </div>
+        </div>
+      `;
+
+      // KPI: caixa atual (último snapshot) + variação
+      if (snapsAsc.length) {
+        const last = totals[totals.length - 1];
+        const prev = totals.length > 1 ? totals[totals.length - 2] : null;
+        const diff = prev == null ? null : last - prev;
+        const lastDate = snapsAsc[snapsAsc.length - 1].date;
+        html += `
+          <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="surface surface-hover p-5">
+              <div class="t-caption text-slate-500 mb-1">Caixa Atual</div>
+              <div class="text-2xl font-semibold text-emerald-400">${fmtBRL(last)}</div>
+              <div class="t-small text-slate-500 mt-1">snapshot de ${dateBR(lastDate)}</div>
+            </div>
+            <div class="surface surface-hover p-5">
+              <div class="t-caption text-slate-500 mb-1">Variação vs snapshot anterior</div>
+              <div class="text-2xl font-semibold ${diff == null ? "text-slate-400" : diff >= 0 ? "text-emerald-400" : "text-rose-400"}">
+                ${diff == null ? "—" : (diff >= 0 ? "+" : "") + fmtBRL(diff)}
+              </div>
+              <div class="t-small text-slate-500 mt-1">${diff == null ? "primeiro snapshot" : `${(diff/prev*100).toFixed(2).replace(".",",")}%`}</div>
+            </div>
+            <div class="surface surface-hover p-5">
+              <div class="t-caption text-slate-500 mb-1">Snapshots cadastrados</div>
+              <div class="text-2xl font-semibold text-slate-200">${snapsAsc.length}</div>
+              <div class="t-small text-slate-500 mt-1">${accs.length} contas monitoradas</div>
+            </div>
+          </section>
+        `;
+      }
+
+      if (!snapsAsc.length) {
+        html += `
+          <section class="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center">
+            <div class="text-slate-300 mb-2 font-medium">Nenhum snapshot ainda</div>
+            <p class="text-slate-500 text-xs mb-5">Cadastre snapshots toda segunda, quarta e sexta com o saldo de cada conta da empresa</p>
+            <button onclick="caixaAddSnapshot()" class="bg-emerald-600 hover:bg-emerald-500 rounded-lg px-4 py-2 text-sm text-white font-medium transition">
+              Adicionar primeiro snapshot
+            </button>
+          </section>
+        `;
+        el.innerHTML = html;
+        return;
+      }
+
+      // Matriz contas × snapshots
+      const headerCells = snapsDesc.map(s => `
+        <th class="px-4 py-3 text-right" style="min-width:140px">
+          <div class="flex items-center justify-end gap-1.5">
+            <span class="text-slate-300">${dateBR(s.date)}</span>
+            <button onclick="caixaRemoveSnapshot('${s.date}')" class="opacity-30 hover:opacity-100 hover:text-rose-400 transition" title="Remover snapshot">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </th>
+      `).join("");
+
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const accountRows = accs.map(acc => {
+        const isAutoManaged = /lootrush|wise.*cnpj|wise.*llp|buygoods/i.test(acc.name);
+        const liveDot = isAutoManaged
+          ? `<span class="inline-block ml-1.5" title="Atualizado automaticamente via API"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span></span>`
+          : "";
+        return `
+          <tr class="border-t border-slate-800 hover:bg-slate-800/30">
+            <td class="px-4 py-2 text-left not-num sticky left-0 bg-slate-900 z-10 text-slate-200">
+              <span class="inline-flex items-center">${escapeHtml(acc.name)}${liveDot}</span>
+            </td>
+            <td class="px-3 py-2 text-left not-num text-slate-500 text-xs">${acc.currency}</td>
+            ${snapsDesc.map(s => {
+              const v = s.balances[acc.id];
+              const isLiveCell = isAutoManaged && s.date === todayISO;
+              const cellBg = isLiveCell ? "bg-emerald-950/20" : "";
+              const inputCls = isLiveCell
+                ? "caixa-input w-full bg-transparent border border-emerald-500/30 rounded px-2 py-1 text-right text-emerald-300 focus:outline-none focus:border-emerald-500 text-sm font-medium"
+                : "caixa-input w-full bg-transparent border border-transparent hover:border-slate-700 focus:border-emerald-500 rounded px-2 py-1 text-right text-slate-200 focus:outline-none focus:bg-slate-950 text-sm";
+              return `<td class="px-2 py-1 text-right ${cellBg}">
+                <input type="text"
+                  value="${v == null ? "" : caixaFormatNumber(v)}"
+                  data-caixa-cell="${s.date}|${acc.id}"
+                  oninput="caixaSetCell('${s.date}', '${acc.id}', this.value)"
+                  onblur="caixaFormatCell(this)"
+                  onkeydown="caixaCellKey(event, this)"
+                  ${isLiveCell ? 'title="Live via API · sobrescrito automaticamente ao reabrir a view"' : ""}
+                  class="${inputCls}" />
+              </td>`;
+            }).join("")}
+          </tr>
+        `;
+      }).join("");
+
+      const ptaxRows = `
+        <tr class="border-t-2 border-slate-700 bg-slate-950/60">
+          <td class="px-4 py-2 text-left text-xs text-slate-400 italic sticky left-0 bg-slate-950 z-10" colspan="2">PTAX USD → BRL</td>
+          ${snapsDesc.map(s => `
+            <td class="px-2 py-1 text-right">
+              <input type="text"
+                value="${s.ptaxUsd ? caixaFormatNumber(s.ptaxUsd) : ""}"
+                data-caixa-ptax="${s.date}|usd"
+                oninput="caixaSetPtax('${s.date}', 'usd', this.value)"
+                onblur="caixaFormatCell(this)"
+                onkeydown="caixaCellKey(event, this)"
+                class="caixa-input w-full bg-transparent border border-transparent hover:border-slate-700 focus:border-emerald-500 rounded px-2 py-1 text-right text-slate-300 focus:outline-none focus:bg-slate-900 text-sm" />
+            </td>
+          `).join("")}
+        </tr>
+        <tr class="bg-slate-950/60">
+          <td class="px-4 py-2 text-left text-xs text-slate-400 italic sticky left-0 bg-slate-950 z-10" colspan="2">PTAX EUR → BRL</td>
+          ${snapsDesc.map(s => `
+            <td class="px-2 py-1 text-right">
+              <input type="text"
+                value="${s.ptaxEur ? caixaFormatNumber(s.ptaxEur) : ""}"
+                data-caixa-ptax="${s.date}|eur"
+                oninput="caixaSetPtax('${s.date}', 'eur', this.value)"
+                onblur="caixaFormatCell(this)"
+                onkeydown="caixaCellKey(event, this)"
+                class="caixa-input w-full bg-transparent border border-transparent hover:border-slate-700 focus:border-emerald-500 rounded px-2 py-1 text-right text-slate-300 focus:outline-none focus:bg-slate-900 text-sm" />
+            </td>
+          `).join("")}
+        </tr>
+      `;
+
+      const totalRow = `
+        <tr class="bg-emerald-950/30 font-semibold">
+          <td class="px-4 py-3 text-left sticky left-0 bg-emerald-950/40 z-10 text-emerald-300" colspan="2">Caixa Total (BRL)</td>
+          ${snapsDesc.map((s, i) => {
+            const idx = snapsAsc.length - 1 - i;
+            return `<td class="px-4 py-3 text-right text-emerald-400" data-caixa-total="${s.date}">${fmtBRL(totals[idx])}</td>`;
+          }).join("")}
+        </tr>
+      `;
+
+      const diffRow = `
+        <tr class="bg-slate-950/40">
+          <td class="px-4 py-3 text-left text-xs text-slate-400 sticky left-0 bg-slate-950 z-10" colspan="2">Diferença vs anterior</td>
+          ${snapsDesc.map((s, i) => {
+            const idx = snapsAsc.length - 1 - i;
+            const d = idx === 0 ? null : totals[idx] - totals[idx - 1];
+            if (d == null) return `<td class="px-4 py-3 text-right text-slate-600 text-xs" data-caixa-diff="${s.date}">—</td>`;
+            const cls = d >= 0 ? "text-emerald-400" : "text-rose-400";
+            const sign = d >= 0 ? "+" : "";
+            return `<td class="px-4 py-3 text-right ${cls} text-xs" data-caixa-diff="${s.date}">${sign}${fmtBRL(d)}</td>`;
+          }).join("")}
+        </tr>
+      `;
+
+      html += `
+        <section class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div class="overflow-x-auto scroll-thin">
+            <table class="w-full text-sm num">
+              <thead class="bg-slate-950 text-xs uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th class="px-4 py-3 text-left not-num sticky left-0 bg-slate-950 z-20" style="min-width:240px">Conta</th>
+                  <th class="px-3 py-3 text-left not-num" style="width:70px">Moeda</th>
+                  ${headerCells}
+                </tr>
+              </thead>
+              <tbody>
+                ${accountRows}
+                ${ptaxRows}
+              </tbody>
+              <tfoot class="border-t-2 border-slate-700">
+                ${totalRow}
+                ${diffRow}
+              </tfoot>
+            </table>
+          </div>
+        </section>
+      `;
+
+      el.innerHTML = html;
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    }
+
+    function caixaFormatCell(input) {
+      const n = caixaParseNumber(input.value);
+      input.value = n == null ? "" : caixaFormatNumber(n);
+    }
+
+    // Wrapper: renderiza preservando foco + valor digitado + posição do cursor
+    // pra não atrapalhar o usuário enquanto auto-fetches terminam.
+    async function renderCaixaPreserveFocus() {
+      const active = document.activeElement;
+      let saved = null;
+      if (active && active.dataset && (active.dataset.caixaCell || active.dataset.caixaPtax)) {
+        saved = {
+          attr: active.dataset.caixaCell ? "data-caixa-cell" : "data-caixa-ptax",
+          key:  active.dataset.caixaCell || active.dataset.caixaPtax,
+          value: active.value,
+          selectionStart: active.selectionStart,
+          selectionEnd: active.selectionEnd,
+        };
+        // Garante que o último valor digitado está no state antes do re-render
+        if (active.dataset.caixaCell) {
+          const [d, accId] = active.dataset.caixaCell.split("|");
+          caixaSetCell(d, accId, active.value);
+        } else if (active.dataset.caixaPtax) {
+          const [d, kind] = active.dataset.caixaPtax.split("|");
+          caixaSetPtax(d, kind, active.value);
+        }
+      }
+      await renderCaixa();
+      if (saved) {
+        const el = document.querySelector(`[${saved.attr}="${saved.key}"]`);
+        if (el) {
+          // Se o valor mudou enquanto re-renderizava, mantém o que o usuário digitou
+          if (saved.value !== el.value) el.value = saved.value;
+          el.focus();
+          try { el.setSelectionRange(saved.selectionStart, saved.selectionEnd); } catch {}
+        }
+      }
+    }
+
+    // Navegação tipo planilha: Enter/ArrowDown → próxima linha;
+    // Shift+Enter/ArrowUp → linha anterior. Salta entre contas e PTAX na mesma coluna.
+    function caixaCellKey(event, input) {
+      const key = event.key;
+      if (key !== "Enter" && key !== "ArrowDown" && key !== "ArrowUp") return;
+      const direction = (key === "ArrowUp" || (key === "Enter" && event.shiftKey)) ? -1 : 1;
+      event.preventDefault();
+      const tag = input.dataset.caixaCell || input.dataset.caixaPtax || "";
+      const date = tag.split("|")[0];
+      if (!date) return;
+      const all = [...document.querySelectorAll(
+        `[data-caixa-cell^="${date}|"], [data-caixa-ptax^="${date}|"]`
+      )];
+      const idx = all.indexOf(input);
+      if (idx < 0) return;
+      const next = all[idx + direction];
+      if (next) {
+        next.focus();
+        if (typeof next.select === "function") next.select();
+      } else {
+        input.blur();
+      }
+    }
+
+    function caixaSetCell(date, accId, raw) {
+      const snap = caixaState.snapshots.find(s => s.date === date);
+      if (!snap) return;
+      const n = caixaParseNumber(raw);
+      if (n == null) delete snap.balances[accId];
+      else snap.balances[accId] = n;
+      caixaSaveSoon();
+      caixaRefreshTotals();
+    }
+
+    function caixaSetPtax(date, kind, raw) {
+      const snap = caixaState.snapshots.find(s => s.date === date);
+      if (!snap) return;
+      const n = caixaParseNumber(raw);
+      const field = kind === "usd" ? "ptaxUsd" : "ptaxEur";
+      if (n == null) delete snap[field];
+      else snap[field] = n;
+      caixaSaveSoon();
+      caixaRefreshTotals();
+    }
+
+    function caixaRefreshTotals() {
+      const snapsAsc = [...caixaState.snapshots].sort((a, b) => a.date.localeCompare(b.date));
+      const totals = snapsAsc.map(caixaSnapshotTotal);
+      snapsAsc.forEach((s, idx) => {
+        const totalCell = document.querySelector(`[data-caixa-total="${s.date}"]`);
+        const diffCell = document.querySelector(`[data-caixa-diff="${s.date}"]`);
+        if (totalCell) totalCell.textContent = fmtBRL(totals[idx]);
+        if (diffCell) {
+          if (idx === 0) {
+            diffCell.textContent = "—";
+            diffCell.className = "px-4 py-3 text-right text-slate-600 text-xs";
+          } else {
+            const d = totals[idx] - totals[idx - 1];
+            const cls = d >= 0 ? "text-emerald-400" : "text-rose-400";
+            const sign = d >= 0 ? "+" : "";
+            diffCell.textContent = `${sign}${fmtBRL(d)}`;
+            diffCell.className = `px-4 py-3 text-right ${cls} text-xs`;
+          }
+          diffCell.setAttribute("data-caixa-diff", s.date);
+        }
+      });
+    }
+
+    async function caixaAddSnapshot() {
+      const todayISO = new Date().toISOString().slice(0, 10);
+      // Modal simples com input de data
+      const modal = document.createElement("div");
+      modal.id = "caixa-add-modal";
+      modal.className = "fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4";
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+      modal.innerHTML = `
+        <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-sm w-full p-5">
+          <h2 class="text-sm font-semibold text-slate-200 mb-3">Novo snapshot</h2>
+          <label class="block text-xs text-slate-400 mb-1">Data</label>
+          <input id="caixa-add-date" type="date" value="${todayISO}"
+            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500" />
+          <p class="text-xs text-slate-500 mt-2">A cotação PTAX USD/BRL será buscada automaticamente no Banco Central</p>
+          <div class="flex items-center justify-end gap-2 mt-4">
+            <button onclick="document.getElementById('caixa-add-modal').remove()" class="bg-slate-800 border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 text-sm text-slate-300 transition">Cancelar</button>
+            <button id="caixa-add-confirm" class="bg-emerald-600 hover:bg-emerald-500 rounded-lg px-3 py-1.5 text-sm text-white font-medium transition">Criar</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      document.getElementById("caixa-add-confirm").onclick = async () => {
+        const date = document.getElementById("caixa-add-date").value;
+        if (!date) return;
+        if (caixaState.snapshots.some(s => s.date === date)) {
+          alert("Já existe snapshot nessa data.");
+          return;
+        }
+        modal.remove();
+        let ptaxUsd = null;
+        try { const r = await fetchPTAX(date); if (r) ptaxUsd = r.rate; } catch {}
+        // Copiar PTAX EUR do snapshot mais recente (se existir)
+        let ptaxEur = null;
+        const prev = [...caixaState.snapshots].sort((a, b) => b.date.localeCompare(a.date))[0];
+        if (prev && prev.ptaxEur) ptaxEur = prev.ptaxEur;
+        caixaState.snapshots.push({ date, ptaxUsd, ptaxEur, balances: {} });
+        caixaSaveSoon();
+        renderCaixa();
+      };
+      setTimeout(() => document.getElementById("caixa-add-date")?.focus(), 50);
+    }
+
+    function caixaRemoveSnapshot(date) {
+      if (!confirm(`Remover snapshot de ${dateBR(date)}?`)) return;
+      caixaState.snapshots = caixaState.snapshots.filter(s => s.date !== date);
+      caixaSaveSoon();
+      renderCaixa();
+    }
+
+    function caixaManageAccounts() {
+      const modal = document.createElement("div");
+      modal.id = "caixa-acc-modal";
+      modal.className = "fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4";
+      modal.onclick = (e) => { if (e.target === modal) caixaCloseManageAccounts(); };
+      modal.innerHTML = `
+        <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-2xl w-full max-h-[80vh] flex flex-col" onclick="event.stopPropagation()">
+          <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-200">Gerenciar contas</h2>
+              <p class="text-xs text-slate-500 mt-0.5">Arraste para reordenar · selecione moeda para conversão BRL</p>
+            </div>
+            <button onclick="caixaCloseManageAccounts()" class="text-slate-500 hover:text-slate-200">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="flex-1 overflow-y-auto p-4 space-y-1.5" id="caixa-acc-list">
+            ${caixaState.accounts.map(a => caixaAccountRowHTML(a)).join("")}
+          </div>
+          <div class="px-5 py-4 border-t border-slate-800 flex items-center justify-between gap-3">
+            <button onclick="caixaModalAddAccount()" class="inline-flex items-center gap-1.5 bg-slate-800 border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 text-sm text-slate-200 transition">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Adicionar conta
+            </button>
+            <button onclick="caixaCloseManageAccounts()" class="bg-emerald-600 hover:bg-emerald-500 rounded-lg px-4 py-1.5 text-sm text-white font-medium transition">Concluído</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    function caixaAccountRowHTML(acc) {
+      const name = escapeHtml(acc.name);
+      return `
+        <div class="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg p-2" data-acc-id="${acc.id}">
+          <input type="text" value="${name}"
+            oninput="caixaUpdateAccount('${acc.id}', 'name', this.value)"
+            class="flex-1 bg-transparent border border-transparent hover:border-slate-700 focus:border-emerald-500 rounded px-2 py-1 text-sm text-slate-200 focus:outline-none focus:bg-slate-900" />
+          <select onchange="caixaUpdateAccount('${acc.id}', 'currency', this.value)"
+            class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+            <option value="BRL" ${acc.currency === "BRL" ? "selected" : ""}>BRL</option>
+            <option value="USD" ${acc.currency === "USD" ? "selected" : ""}>USD</option>
+            <option value="EUR" ${acc.currency === "EUR" ? "selected" : ""}>EUR</option>
+          </select>
+          <button onclick="caixaDeleteAccount('${acc.id}')" class="text-slate-500 hover:text-rose-400 transition p-1.5 rounded hover:bg-rose-950/30" title="Remover conta">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>
+      `;
+    }
+
+    function caixaUpdateAccount(id, field, value) {
+      const acc = caixaState.accounts.find(a => a.id === id);
+      if (!acc) return;
+      acc[field] = value;
+      caixaSaveSoon();
+    }
+
+    function caixaModalAddAccount() {
+      const newAcc = { id: caixaUid(), name: "Nova conta", currency: "BRL" };
+      caixaState.accounts.push(newAcc);
+      const list = document.getElementById("caixa-acc-list");
+      list.insertAdjacentHTML("beforeend", caixaAccountRowHTML(newAcc));
+      caixaSaveSoon();
+      setTimeout(() => {
+        const input = list.querySelector(`[data-acc-id="${newAcc.id}"] input`);
+        if (input) { input.focus(); input.select(); }
+      }, 30);
+    }
+
+    function caixaDeleteAccount(id) {
+      const acc = caixaState.accounts.find(a => a.id === id);
+      if (!acc) return;
+      if (!confirm(`Remover "${acc.name}"? Os saldos cadastrados serão perdidos em todos os snapshots.`)) return;
+      caixaState.accounts = caixaState.accounts.filter(a => a.id !== id);
+      caixaState.snapshots.forEach(s => delete s.balances[id]);
+      caixaSaveSoon();
+      const row = document.querySelector(`#caixa-acc-list [data-acc-id="${id}"]`);
+      if (row) row.remove();
+    }
+
+    function caixaCloseManageAccounts() {
+      const modal = document.getElementById("caixa-acc-modal");
+      if (modal) modal.remove();
+      renderCaixa();
+    }
+
+    // Silent variant — chamado automaticamente ao abrir a view. Loga no console pra debug.
+    async function caixaAutoFetchLootrush() {
+      console.info("[caixa] auto-fetch LootRush iniciando...");
+      if (!SERVER_MODE) { console.warn("[caixa] SERVER_MODE off, abortando"); return; }
+      try {
+        const r = await fetch("/lootrush-balance");
+        console.info("[caixa] /lootrush-balance status:", r.status);
+        if (!r.ok) {
+          console.error("[caixa] HTTP", r.status, await r.text().catch(() => ""));
+          return;
+        }
+        const data = await r.json();
+        console.info("[caixa] LootRush data:", data);
+        if (data.error) { console.warn("[caixa] erro no payload:", data.error); return; }
+        if (data.total == null) { console.warn("[caixa] total ausente"); return; }
+
+        const acc = caixaState.accounts.find(a => /lootrush/i.test(a.name));
+        if (!acc) {
+          console.warn("[caixa] conta com 'lootrush' no nome não encontrada. Contas:", caixaState.accounts.map(a => a.name));
+          return;
+        }
+
+        const today = new Date().toISOString().slice(0, 10);
+        let snap = caixaState.snapshots.find(s => s.date === today);
+        if (!snap) {
+          let ptaxUsd = null;
+          try { const r2 = await fetchPTAX(today); if (r2) ptaxUsd = r2.rate; } catch {}
+          let ptaxEur = null;
+          const prev = [...caixaState.snapshots].sort((a, b) => b.date.localeCompare(a.date))[0];
+          if (prev && prev.ptaxEur) ptaxEur = prev.ptaxEur;
+          snap = { date: today, ptaxUsd, ptaxEur, balances: {} };
+          caixaState.snapshots.push(snap);
+          console.info("[caixa] snapshot criado pra", today);
+        }
+
+        snap.balances[acc.id] = data.total;
+        caixaState._lootrushLastFetch = {
+          at: new Date().toISOString(),
+          wallet: data.wallet_usdc,
+          cards: data.card_collateral,
+          total: data.total,
+        };
+        console.info("[caixa] balance setado:", acc.name, "=", data.total);
+
+        // Save IMEDIATO (sem debounce) pra garantir persistência
+        await caixaSaveNow();
+        await renderCaixaPreserveFocus();
+        console.info("[caixa] auto-fetch concluído com sucesso");
+      } catch (e) {
+        console.error("[caixa] auto-fetch falhou:", e);
+      }
+    }
+
+    // Wrapper genérico: faz fetch do endpoint, acha conta por regex no nome,
+    // garante snapshot pra hoje e seta a célula com o valor extraído.
+    async function caixaAutoFetchSource({ endpoint, accountRegex, label, sourceKey, extractTotal, extractMeta }) {
+      console.info(`[caixa] auto-fetch ${label} iniciando...`);
+      if (!SERVER_MODE) return;
+      try {
+        const r = await fetch(endpoint);
+        console.info(`[caixa] ${endpoint} status:`, r.status);
+        if (!r.ok) { console.error(`[caixa] ${label} HTTP`, r.status); return; }
+        const data = await r.json();
+        console.info(`[caixa] ${label} data:`, data);
+        if (data.error) { console.warn(`[caixa] ${label} error:`, data.error); return; }
+        const total = extractTotal(data);
+        if (total == null) { console.warn(`[caixa] ${label} total ausente`); return; }
+
+        const acc = caixaState.accounts.find(a => accountRegex.test(a.name));
+        if (!acc) { console.warn(`[caixa] conta ${accountRegex} não encontrada. Contas:`, caixaState.accounts.map(a => a.name)); return; }
+
+        const today = new Date().toISOString().slice(0, 10);
+        let snap = caixaState.snapshots.find(s => s.date === today);
+        if (!snap) {
+          let ptaxUsd = data.ptax_used || null;
+          if (!ptaxUsd) { try { const r2 = await fetchPTAX(today); if (r2) ptaxUsd = r2.rate; } catch {} }
+          const prev = [...caixaState.snapshots].sort((a, b) => b.date.localeCompare(a.date))[0];
+          const ptaxEur = (prev && prev.ptaxEur) || null;
+          snap = { date: today, ptaxUsd, ptaxEur, balances: {} };
+          caixaState.snapshots.push(snap);
+        }
+
+        snap.balances[acc.id] = total;
+        caixaState._sourcesLastFetch = caixaState._sourcesLastFetch || {};
+        caixaState._sourcesLastFetch[sourceKey] = {
+          at: new Date().toISOString(),
+          total,
+          label,
+          meta: extractMeta ? extractMeta(data) : null,
+        };
+        console.info(`[caixa] ${label} balance setado:`, acc.name, "=", total);
+
+        await caixaSaveNow();
+        await renderCaixaPreserveFocus();
+        console.info(`[caixa] ${label} concluído`);
+      } catch (e) {
+        console.error(`[caixa] ${label} falhou:`, e);
+      }
+    }
+
+    function caixaAutoFetchWiseLlp() {
+      return caixaAutoFetchSource({
+        endpoint: "/wise-llp-balance",
+        accountRegex: /wise.*llp/i,
+        label: "Wise LLP",
+        sourceKey: "wiseLlp",
+        extractTotal: d => d.total_usd,
+        extractMeta: d => ({ profile: d.profile_name, balances: d.balances }),
+      });
+    }
+
+    // BuyGoods pendente — preenche a célula da conta "Buygoods" com o total pending
+    // (sales + baseline manual). É o que ele tem A RECEBER, então conta no Caixa Total.
+    async function caixaAutoFetchBuyGoodsPending() {
+      console.info("[caixa] auto-fetch BuyGoods pendente...");
+      if (!SERVER_MODE) return;
+      try {
+        const r = await fetch("/buygoods-pending");
+        if (!r.ok) { console.error("[caixa] buygoods HTTP", r.status); return; }
+        const data = await r.json();
+        console.info("[caixa] BuyGoods pending data:", data);
+        if (data.error) { console.warn("[caixa] buygoods error:", data.error); return; }
+        const total = data.pending_usd || 0;
+
+        caixaState._sourcesLastFetch = caixaState._sourcesLastFetch || {};
+        caixaState._sourcesLastFetch.buygoodsPending = {
+          at: new Date().toISOString(),
+          pending: total,
+          sales: data.sales_usd || 0,
+          manual_adjustment: data.manual_adjustment_usd || 0,
+          manual_note: data.manual_adjustment_note || "",
+          manual_updated: data.manual_adjustment_updated || "",
+          count: data.sales_count || 0,
+          last_payout: data.last_payout,
+          auto_marked: data.auto_marked_payout,
+          recent: data.recent_sales || [],
+        };
+
+        // Preenche a célula da conta "Buygoods" no snapshot de hoje
+        const acc = caixaState.accounts.find(a => /buygoods/i.test(a.name));
+        if (acc) {
+          const today = new Date().toISOString().slice(0, 10);
+          let snap = caixaState.snapshots.find(s => s.date === today);
+          if (!snap) {
+            let ptaxUsd = null;
+            try { const r2 = await fetchPTAX(today); if (r2) ptaxUsd = r2.rate; } catch {}
+            const prev = [...caixaState.snapshots].sort((a, b) => b.date.localeCompare(a.date))[0];
+            const ptaxEur = (prev && prev.ptaxEur) || null;
+            snap = { date: today, ptaxUsd, ptaxEur, balances: {} };
+            caixaState.snapshots.push(snap);
+          }
+          snap.balances[acc.id] = total;
+          await caixaSaveNow();
+        } else {
+          console.warn("[caixa] conta 'Buygoods' não encontrada — adicione em Gerenciar contas pra contar no Caixa Total");
+        }
+
+        await renderCaixaPreserveFocus();
+        console.info("[caixa] BuyGoods pending concluído");
+      } catch (e) {
+        console.error("[caixa] BuyGoods pending falhou:", e);
+      }
+    }
+
+    // Silent variant pra Wise CNPJ — chamado automaticamente ao abrir a view
+    async function caixaAutoFetchWiseCnpj() {
+      console.info("[caixa] auto-fetch Wise CNPJ iniciando...");
+      if (!SERVER_MODE) return;
+      try {
+        const r = await fetch("/wise-cnpj-balance");
+        console.info("[caixa] /wise-cnpj-balance status:", r.status);
+        if (!r.ok) { console.error("[caixa] wise HTTP", r.status); return; }
+        const data = await r.json();
+        console.info("[caixa] Wise CNPJ data:", data);
+        if (data.error) { console.warn("[caixa] wise error:", data.error); return; }
+        if (data.total_usd == null) return;
+
+        const acc = caixaState.accounts.find(a => /wise.*cnpj/i.test(a.name));
+        if (!acc) {
+          console.warn("[caixa] conta 'Wise CNPJ' não encontrada. Contas:", caixaState.accounts.map(a => a.name));
+          return;
+        }
+
+        const today = new Date().toISOString().slice(0, 10);
+        let snap = caixaState.snapshots.find(s => s.date === today);
+        if (!snap) {
+          let ptaxUsd = data.ptax_used || null;
+          if (!ptaxUsd) { try { const r2 = await fetchPTAX(today); if (r2) ptaxUsd = r2.rate; } catch {} }
+          const prev = [...caixaState.snapshots].sort((a, b) => b.date.localeCompare(a.date))[0];
+          const ptaxEur = (prev && prev.ptaxEur) || null;
+          snap = { date: today, ptaxUsd, ptaxEur, balances: {} };
+          caixaState.snapshots.push(snap);
+          console.info("[caixa] snapshot criado pra", today);
+        }
+
+        snap.balances[acc.id] = data.total_usd;
+        caixaState._wiseLastFetch = caixaState._wiseLastFetch || {};
+        caixaState._wiseLastFetch.cnpj = {
+          at: new Date().toISOString(),
+          total: data.total_usd,
+          balances: data.balances,
+          profile: data.profile_name,
+        };
+        console.info("[caixa] Wise CNPJ balance setado:", acc.name, "=", data.total_usd);
+
+        await caixaSaveNow();
+        await renderCaixaPreserveFocus();
+        console.info("[caixa] Wise CNPJ concluído");
+      } catch (e) {
+        console.error("[caixa] Wise CNPJ falhou:", e);
+      }
+    }
+
+    function caixaAdjustBuyGoods() {
+      const bg = caixaState._sourcesLastFetch?.buygoodsPending;
+      const currentAmount = bg?.manual_adjustment || 0;
+      const currentNote = bg?.manual_note || "";
+
+      const modal = document.createElement("div");
+      modal.id = "bg-adjust-modal";
+      modal.className = "fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4";
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+      modal.innerHTML = `
+        <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-md w-full p-5">
+          <h2 class="text-sm font-semibold text-slate-200">Ajustar baseline BuyGoods</h2>
+          <p class="text-xs text-slate-400 mt-1">Valor pendente acumulado antes do postback estar configurado. Substitui o baseline anterior. Zera automaticamente quando a BuyGoods pagar (deposit na LootRush).</p>
+          <label class="block text-xs text-slate-400 mt-4 mb-1">Valor pendente (USD)</label>
+          <input id="bg-adjust-amount" type="number" step="0.01" value="${currentAmount}"
+            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500" />
+          <label class="block text-xs text-slate-400 mt-3 mb-1">Nota (opcional)</label>
+          <input id="bg-adjust-note" type="text" value="${currentNote.replace(/"/g, '&quot;')}" placeholder="ex: baseline 26/05"
+            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500" />
+          <div class="flex items-center justify-between gap-2 mt-5">
+            <button onclick="caixaAdjustBuyGoodsZero()" class="bg-slate-800 border border-slate-700 hover:border-rose-500 hover:text-rose-300 rounded-lg px-3 py-1.5 text-sm text-slate-300 transition">Zerar baseline</button>
+            <div class="flex items-center gap-2">
+              <button onclick="document.getElementById('bg-adjust-modal').remove()" class="bg-slate-800 border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 text-sm text-slate-300 transition">Cancelar</button>
+              <button id="bg-adjust-save" onclick="caixaAdjustBuyGoodsSave()" class="bg-amber-600 hover:bg-amber-500 rounded-lg px-3 py-1.5 text-sm text-white font-medium transition">Salvar</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      setTimeout(() => document.getElementById("bg-adjust-amount")?.focus(), 50);
+    }
+
+    async function caixaAdjustBuyGoodsSave() {
+      const amountEl = document.getElementById("bg-adjust-amount");
+      const noteEl = document.getElementById("bg-adjust-note");
+      const saveBtn = document.getElementById("bg-adjust-save");
+      const amount = parseFloat(amountEl?.value || "0");
+      const note = noteEl?.value || "";
+      if (isNaN(amount)) { alert("Valor inválido"); return; }
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Salvando..."; }
+      try {
+        const r = await fetch("/buygoods-adjust", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount, note }),
+        });
+        const data = await r.json();
+        if (data.error) { alert("Erro: " + data.error); return; }
+        document.getElementById("bg-adjust-modal")?.remove();
+        // Re-fetch pra mostrar atualizado
+        await caixaAutoFetchBuyGoodsPending();
+      } catch (e) {
+        alert("Falha: " + e.message);
+      } finally {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Salvar"; }
+      }
+    }
+
+    function caixaAdjustBuyGoodsZero() {
+      const amountEl = document.getElementById("bg-adjust-amount");
+      const noteEl = document.getElementById("bg-adjust-note");
+      if (amountEl) amountEl.value = "0";
+      if (noteEl) noteEl.value = "";
+      caixaAdjustBuyGoodsSave();
+    }
+
+    async function caixaSaveNow() {
+      if (!SERVER_MODE) return;
+      try {
+        await fetch("/caixa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accounts: caixaState.accounts, snapshots: caixaState.snapshots })
+        });
+      } catch (e) {
+        console.error("[caixa] save falhou:", e);
+      }
+    }
+
+    async function caixaFetchLootrush() {
+      const btn = document.getElementById("caixa-fetch-lootrush-btn");
+      const originalHTML = btn?.innerHTML;
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<svg class="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Buscando...`;
+      }
+      try {
+        const r = await fetch("/lootrush-balance");
+        const data = await r.json();
+        if (data.error) {
+          alert("Erro LootRush: " + data.error);
+          return;
+        }
+        const errs = [];
+        if (data.card_collateral_error) errs.push("cards: " + data.card_collateral_error);
+        if (data.wallet_usdc_error)     errs.push("wallet: " + data.wallet_usdc_error);
+
+        // Encontrar conta LootRush
+        const acc = caixaState.accounts.find(a => /lootrush/i.test(a.name));
+        if (!acc) {
+          alert(`Saldo LootRush: ${fmtBRL(data.total).replace("R$", "$")}\n\nNenhuma conta com nome "LootRush" no Controle de Caixa. Adicione uma conta primeiro em Gerenciar contas.`);
+          return;
+        }
+
+        // Garantir snapshot pra hoje
+        const today = new Date().toISOString().slice(0, 10);
+        let snap = caixaState.snapshots.find(s => s.date === today);
+        if (!snap) {
+          let ptaxUsd = null;
+          try { const r2 = await fetchPTAX(today); if (r2) ptaxUsd = r2.rate; } catch {}
+          let ptaxEur = null;
+          const prev = [...caixaState.snapshots].sort((a, b) => b.date.localeCompare(a.date))[0];
+          if (prev && prev.ptaxEur) ptaxEur = prev.ptaxEur;
+          snap = { date: today, ptaxUsd, ptaxEur, balances: {} };
+          caixaState.snapshots.push(snap);
+        }
+
+        snap.balances[acc.id] = data.total;
+        caixaSaveSoon();
+        renderCaixa();
+
+        // Toast com breakdown
+        const breakdown = `$${data.wallet_usdc.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2})} wallet + $${data.card_collateral.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2})} cards`;
+        const total = `$${data.total.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        const warn = errs.length ? `\n\n⚠ Falhas parciais:\n${errs.join("\n")}` : "";
+        caixaToast(`LootRush atualizado: ${total}`, `${breakdown}${warn}`);
+      } catch (e) {
+        alert("Falha ao buscar LootRush: " + e.message);
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = originalHTML; }
+      }
+    }
+
+    function caixaToast(title, subtitle) {
+      const old = document.getElementById("caixa-toast");
+      if (old) old.remove();
+      const t = document.createElement("div");
+      t.id = "caixa-toast";
+      t.className = "fixed bottom-6 right-6 bg-slate-900 border border-emerald-500/40 rounded-lg px-4 py-3 shadow-2xl z-50 max-w-sm";
+      t.innerHTML = `
+        <div class="text-sm font-semibold text-emerald-400">${escapeHtml(title)}</div>
+        <div class="text-xs text-slate-400 mt-0.5 whitespace-pre-line">${escapeHtml(subtitle)}</div>
+      `;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 6000);
+    }
+
+    // ============================================================
+    // renderAll — re-render the active view (used by setCurrency)
+    // ============================================================
+    function renderAll() {
+      // Always refresh Home aggregates (they back the header/KPIs that may be visible)
+      if (typeof render === "function") render();
+      // Re-render whichever specialty view is currently active
+      switch (currentView) {
+        case "saude":       if (typeof renderSaude       === "function") renderSaude();       break;
+        case "caixa":       if (typeof renderCaixa       === "function") renderCaixa();       break;
+        case "assinaturas": if (typeof renderAssinaturas === "function") renderAssinaturas(); break;
+        case "resumo":      if (typeof renderResumo      === "function") renderResumo();      break;
+        case "conta":       if (typeof renderConta       === "function" && currentAccountId) renderConta(currentAccountId); break;
+        case "empresa":     if (typeof renderEmpresa     === "function" && currentCompany)   renderEmpresa(currentCompany); break;
       }
     }
 

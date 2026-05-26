@@ -1,0 +1,13 @@
+name = "buygoods-postback"
+main = "worker.js"
+compatibility_date = "2024-09-01"
+
+# Substituir o id abaixo pelo retornado por:
+#   wrangler kv:namespace create SALES
+[[kv_namespaces]]
+binding = "SALES"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+# Secrets a configurar (via dashboard ou CLI):
+#   wrangler secret put POSTBACK_TOKEN
+#   wrangler secret put READ_TOKEN

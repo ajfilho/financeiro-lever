@@ -4275,16 +4275,19 @@
         const list = groupedAccs[g.key];
         if (!list || !list.length) return;
         const collapsed = caixaState.collapsedGroups.has(g.key);
+        // NÃO usar colspan — td com colspan ignora sticky. Primeira célula sticky + células vazias.
+        const emptyCols = displaySnapsAsc.map(() => `<td class="bg-slate-950/80"></td>`).join("");
         allRowsHtml += `
           <tr class="bg-slate-950/80 border-t-2 border-slate-700/80 cursor-pointer select-none hover:bg-slate-900/80 transition-colors"
               onclick="caixaToggleGroup('${g.key}')">
-            <td colspan="${colCount + 1}" class="px-4 py-2">
+            <td class="px-4 py-2 sticky left-0 z-10 bg-slate-950/90 border-r border-slate-800/60">
               <div class="flex items-center gap-2">
                 <span class="transition-transform inline-block ${collapsed ? "" : "rotate-90"}">${chevSvg}</span>
                 <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider">${escapeHtml(g.label)}</span>
                 <span class="text-xs text-slate-500 font-normal normal-case">${list.length} conta${list.length === 1 ? "" : "s"}</span>
               </div>
             </td>
+            ${emptyCols}
           </tr>`;
         if (!collapsed) list.forEach(acc => { allRowsHtml += renderAccRow(acc, rowIdx++); });
       });

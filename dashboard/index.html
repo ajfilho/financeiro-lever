@@ -3879,7 +3879,7 @@
       accounts: [],          // [{id, name, currency}]
       snapshots: [],         // [{date, ptaxUsd, ptaxEur, balances: {accId: number}}]
       selectedMonth: null,   // "YYYY-MM" ou null (= mês atual)
-      collapsedGroups: new Set(["cartpanda","conta-simples","digistore"]), // recolhidos por padrão
+      collapsedGroups: new Set(["cartpanda","conta-simples","digistore","outros"]), // recolhidos por padrão
     };
 
     const CAIXA_DEFAULT_ACCOUNTS = [
@@ -3906,6 +3906,7 @@
       { key: "cartpanda",     label: "Cartpanda",     pattern: /cartpanda/i },
       { key: "conta-simples", label: "Conta Simples", pattern: /conta simpl/i },
       { key: "digistore",    label: "Digistore",     pattern: /digistore/i },
+      { key: "outros",       label: "Outros",        pattern: /sicoob|payoneer llp|wise.*cnpj|hotmart/i },
     ];
 
     /** Retorna todas as datas seg/qua/sex do mês "YYYY-MM". */

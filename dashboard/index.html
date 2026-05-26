@@ -3879,7 +3879,7 @@
       accounts: [],          // [{id, name, currency}]
       snapshots: [],         // [{date, ptaxUsd, ptaxEur, balances: {accId: number}}]
       selectedMonth: null,   // "YYYY-MM" ou null (= mês atual)
-      collapsedGroups: new Set(), // group keys recolhidos
+      collapsedGroups: new Set(["cartpanda","conta-simples","digistore"]), // recolhidos por padrão
     };
 
     const CAIXA_DEFAULT_ACCOUNTS = [
@@ -4335,7 +4335,27 @@
         const list = groupedAccs[g.key];
         if (!list || !list.length) return;
         const collapsed = caixaState.collapsedGroups.has(g.key);
-        const emptyCols = displaySnapsAsc.map(() => `<td class="bg-slate-950/80"></td>`).join("");
+
+        // Total "Hoje" do grupo: soma dos valores live / snapshot de hoje
+        const groupHojeTotal = list.reduce((sum, acc) => {
+          const { value } = getHojeValue(acc);
+          if (value == null) return sum;
+          return sum + caixaToBRL(value, acc.currency, hojeVSnap);
+        }, 0);
+        const groupHasHoje = list.some(acc => getHojeValue(acc).value != null);
+
+        // Total por coluna de data
+        const groupDateCols = displaySnapsAsc.map(s => {
+          // Soma os valores do grupo nessa data (convertendo p/ BRL)
+          let colSum = 0, hasAny = false;
+          list.forEach(acc => {
+            const v = s.balances[acc.id];
+            if (v != null) { colSum += caixaToBRL(v, acc.currency, s); hasAny = true; }
+          });
+          if (!hasAny) return `<td class="border-l border-slate-800/40 bg-slate-950/80"></td>`;
+          return `<td class="px-3 py-2 text-right text-xs text-slate-400 border-l border-slate-800/40 bg-slate-950/80">${fmtBRL(colSum)}</td>`;
+        }).join("");
+
         allRowsHtml += `
           <tr class="bg-slate-950/80 border-t-2 border-slate-700/80 cursor-pointer select-none hover:bg-slate-900/80 transition-colors"
               onclick="caixaToggleGroup('${g.key}')">
@@ -4346,8 +4366,10 @@
                 <span class="text-xs text-slate-500 font-normal normal-case">${list.length} conta${list.length === 1 ? "" : "s"}</span>
               </div>
             </td>
-            <td style="${sHoje}" class="bg-slate-950/90 border-l border-emerald-800/20"></td>
-            ${emptyCols}
+            <td style="${sHoje}" class="px-2 py-2 text-right text-xs border-l border-emerald-800/20 bg-slate-950/90 ${groupHasHoje ? "text-slate-300" : "text-slate-600/40"}">
+              ${groupHasHoje ? fmtBRL(groupHojeTotal) : "—"}
+            </td>
+            ${groupDateCols}
           </tr>`;
         if (!collapsed) list.forEach(acc => { allRowsHtml += renderAccRow(acc, rowIdx++); });
       });

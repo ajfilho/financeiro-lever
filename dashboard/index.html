@@ -3876,8 +3876,10 @@
     // ============================================================
     const caixaState = {
       loaded: false,
-      accounts: [],   // [{id, name, currency}]
-      snapshots: [],  // [{date, ptaxUsd, ptaxEur, balances: {accId: number}}]
+      accounts: [],          // [{id, name, currency}]
+      snapshots: [],         // [{date, ptaxUsd, ptaxEur, balances: {accId: number}}]
+      selectedMonth: null,   // "YYYY-MM" ou null (= mês atual)
+      collapsedGroups: new Set(), // group keys recolhidos
     };
 
     const CAIXA_DEFAULT_ACCOUNTS = [
@@ -3898,6 +3900,44 @@
       { name: "Digistore24",                    currency: "EUR" },
       { name: "Buygoods",                       currency: "USD" },
     ];
+
+    // Grupos de contas — accounts cujo nome bate o pattern ficam num toggle recolhível
+    const CAIXA_GROUPS = [
+      { key: "cartpanda",     label: "Cartpanda",     pattern: /cartpanda/i },
+      { key: "conta-simples", label: "Conta Simples", pattern: /conta simpl/i },
+      { key: "digistore",    label: "Digistore",     pattern: /digistore/i },
+    ];
+
+    /** Retorna todas as datas seg/qua/sex do mês "YYYY-MM". */
+    function caixaGetMonthDates(ym) {
+      const [y, m] = ym.split("-").map(Number);
+      const out = [];
+      const d = new Date(y, m - 1, 1);
+      while (d.getMonth() === m - 1) {
+        const dow = d.getDay();
+        if (dow === 1 || dow === 3 || dow === 5) out.push(d.toISOString().slice(0, 10));
+        d.setDate(d.getDate() + 1);
+      }
+      return out;
+    }
+
+    const caixaCurrSymbol = cur => cur === "BRL" ? "R$" : cur === "EUR" ? "€" : "$";
+
+    function caixaGetGroup(accName) {
+      for (const g of CAIXA_GROUPS) { if (g.pattern.test(accName)) return g; }
+      return null;
+    }
+
+    function caixaToggleGroup(key) {
+      if (caixaState.collapsedGroups.has(key)) caixaState.collapsedGroups.delete(key);
+      else caixaState.collapsedGroups.add(key);
+      renderCaixa();
+    }
+
+    function caixaSelectMonth(ym) {
+      caixaState.selectedMonth = ym;
+      renderCaixa();
+    }
 
     function caixaUid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
 
@@ -3979,12 +4019,40 @@
       }
 
       const accs = caixaState.accounts;
-      const snapsAsc = [...caixaState.snapshots].sort((a, b) => a.date.localeCompare(b.date));
-      const snapsDesc = [...snapsAsc].reverse();
-      const totals = snapsAsc.map(caixaSnapshotTotal);
+      const allSnapsAsc = [...caixaState.snapshots].sort((a, b) => a.date.localeCompare(b.date));
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const currentYM = todayISO.slice(0, 7);
+      const selYM = caixaState.selectedMonth || currentYM;
+
+      // Meses disponíveis (que têm snapshots + mês atual)
+      const monthSet = new Set([currentYM]);
+      allSnapsAsc.forEach(s => monthSet.add(s.date.slice(0, 7)));
+      const months = [...monthSet].sort();
+
+      // Colunas = todas seg/qua/sex do mês selecionado (oldest left → newest right)
+      const monthDates = caixaGetMonthDates(selYM);
+      const realSnapsByDate = {};
+      allSnapsAsc.forEach(s => { realSnapsByDate[s.date] = s; });
+      const displaySnapsAsc = monthDates.map(date =>
+        realSnapsByDate[date] || { date, _virtual: true, ptaxUsd: null, ptaxEur: null, balances: {} }
+      );
+
+      // Valor anterior (qualquer mês) para comparação de crescimento
+      function prevValue(date, accId) {
+        for (let i = allSnapsAsc.length - 1; i >= 0; i--) {
+          if (allSnapsAsc[i].date >= date) continue;
+          const v = allSnapsAsc[i].balances[accId];
+          if (v != null) return v;
+        }
+        return null;
+      }
+
+      const displayTotals = displaySnapsAsc.map(s => caixaSnapshotTotal(s));
 
       const fmtUSD = n => "$" + (n || 0).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
       const liveDotInline = `<span class="relative flex h-1.5 w-1.5 mr-1"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span></span>`;
+
+      // ── Live info lines ──────────────────────────────────────────
       const liveLines = [];
       const lr = caixaState._lootrushLastFetch;
       if (lr) {
@@ -3996,20 +4064,20 @@
       }
       const wc = caixaState._wiseLastFetch?.cnpj;
       if (wc) {
-        const breakdown = (wc.balances || []).filter(b => b.amount != 0).map(b => `${b.currency} ${b.amount.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`).join(" + ") || "vazia";
+        const wcBreakdown = (wc.balances || []).filter(b => b.amount != 0).map(b => `${b.currency} ${b.amount.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`).join(" + ") || "vazia";
         liveLines.push(`<p class="t-small text-emerald-400/80 mt-1 flex items-center gap-1.5">
           ${liveDotInline}Wise CNPJ live: ${fmtUSD(wc.total)}
-          <span class="text-slate-500">(${escapeHtml(wc.profile || "?")} · ${breakdown})</span>
+          <span class="text-slate-500">(${escapeHtml(wc.profile || "?")} · ${wcBreakdown})</span>
           <span class="text-slate-600">· ${new Date(wc.at).toLocaleTimeString("pt-BR", {hour: "2-digit", minute: "2-digit"})}</span>
         </p>`);
       }
       const wl = caixaState._sourcesLastFetch?.wiseLlp;
       if (wl) {
-        const bals = wl.meta?.balances || [];
-        const breakdown = bals.filter(b => b.amount > 0.01).map(b => `${b.currency} ${b.amount.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`).join(" + ") || "vazia";
+        const wlBals = wl.meta?.balances || [];
+        const wlBreakdown = wlBals.filter(b => b.amount > 0.01).map(b => `${b.currency} ${b.amount.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`).join(" + ") || "vazia";
         liveLines.push(`<p class="t-small text-emerald-400/80 mt-1 flex items-center gap-1.5">
           ${liveDotInline}Wise LLP live: ${fmtUSD(wl.total)}
-          <span class="text-slate-500">(${escapeHtml(wl.meta?.profile || "?")} · ${breakdown})</span>
+          <span class="text-slate-500">(${escapeHtml(wl.meta?.profile || "?")} · ${wlBreakdown})</span>
           <span class="text-slate-600">· ${new Date(wl.at).toLocaleTimeString("pt-BR", {hour: "2-digit", minute: "2-digit"})}</span>
         </p>`);
       }
@@ -4019,26 +4087,42 @@
           ? `desde último payout ${new Date(bg.last_payout).toLocaleString("pt-BR", {day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"})}`
           : "desde o início";
         const markedTxt = bg.auto_marked ? ` · payout marcado automaticamente ${new Date(bg.auto_marked).toLocaleString("pt-BR", {day:"2-digit", month:"2-digit"})}` : "";
-        const manual = bg.manual_adjustment || 0;
-        const sales = bg.sales || 0;
-        let breakdown = "";
-        if (manual > 0 && sales > 0)      breakdown = `${bg.count} venda${bg.count === 1 ? "" : "s"} ${fmtUSD(sales)} + baseline ${fmtUSD(manual)}`;
-        else if (manual > 0)              breakdown = `baseline manual ${fmtUSD(manual)}${bg.manual_note ? " · " + escapeHtml(bg.manual_note) : ""}`;
-        else                              breakdown = `${bg.count} venda${bg.count === 1 ? "" : "s"}`;
+        const bgManual = bg.manual_adjustment || 0;
+        const bgSales = bg.sales || 0;
+        let bgBreakdown = "";
+        if (bgManual > 0 && bgSales > 0)  bgBreakdown = `${bg.count} venda${bg.count === 1 ? "" : "s"} ${fmtUSD(bgSales)} + baseline ${fmtUSD(bgManual)}`;
+        else if (bgManual > 0)            bgBreakdown = `baseline manual ${fmtUSD(bgManual)}${bg.manual_note ? " · " + escapeHtml(bg.manual_note) : ""}`;
+        else                              bgBreakdown = `${bg.count} venda${bg.count === 1 ? "" : "s"}`;
         liveLines.push(`<p class="t-small text-amber-400/80 mt-1 flex items-center gap-1.5 flex-wrap">
           <span class="relative flex h-1.5 w-1.5 mr-1"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span></span>
           BuyGoods a receber: ${fmtUSD(bg.pending)}
-          <span class="text-slate-500">(${breakdown} · ${sinceTxt}${markedTxt})</span>
+          <span class="text-slate-500">(${bgBreakdown} · ${sinceTxt}${markedTxt})</span>
           <span class="text-slate-600">· ${new Date(bg.at).toLocaleTimeString("pt-BR", {hour: "2-digit", minute: "2-digit"})}</span>
           <button onclick="caixaAdjustBuyGoods()" class="ml-2 inline-flex items-center gap-1 text-xs text-amber-300/90 hover:text-amber-200 underline decoration-dotted">Ajustar baseline</button>
         </p>`);
       }
       const lrInfo = liveLines.join("");
+
+      // ── Month tabs ───────────────────────────────────────────────
+      const _ML = { "01":"Jan","02":"Fev","03":"Mar","04":"Abr","05":"Mai","06":"Jun","07":"Jul","08":"Ago","09":"Set","10":"Out","11":"Nov","12":"Dez" };
+      const monthTabsHtml = `<div class="flex items-center gap-1.5 flex-wrap mt-2">
+        ${months.map(ym => {
+          const parts = ym.split("-");
+          const label = _ML[parts[1]] + "/" + parts[0].slice(2);
+          const isActive = ym === selYM;
+          return `<button onclick="caixaSelectMonth('${ym}')" class="px-2.5 py-0.5 text-xs rounded-full font-medium transition-colors ${
+            isActive ? "bg-emerald-700 text-white" : "bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+          }">${label}</button>`;
+        }).join("")}
+      </div>`;
+
+      // ── Page header ──────────────────────────────────────────────
       let html = `
         <div class="flex items-end justify-between flex-wrap gap-3">
           <div>
             <h1 class="t-h1">Controle de Caixa</h1>
             <p class="t-small text-slate-400 mt-0.5">Snapshots manuais do caixa por conta · seg/qua/sex · cotação BRL p/ USD e EUR</p>
+            ${monthTabsHtml}
             ${lrInfo}
           </div>
           <div class="flex items-center gap-2 no-print">
@@ -4058,12 +4142,13 @@
         </div>
       `;
 
-      // KPI: caixa atual (último snapshot) + variação
-      if (snapsAsc.length) {
-        const last = totals[totals.length - 1];
-        const prev = totals.length > 1 ? totals[totals.length - 2] : null;
-        const diff = prev == null ? null : last - prev;
-        const lastDate = snapsAsc[snapsAsc.length - 1].date;
+      // ── KPI cards (all snapshots, not just current month) ────────
+      if (allSnapsAsc.length) {
+        const allTotals = allSnapsAsc.map(caixaSnapshotTotal);
+        const last = allTotals[allTotals.length - 1];
+        const prevKpi = allTotals.length > 1 ? allTotals[allTotals.length - 2] : null;
+        const diffKpi = prevKpi == null ? null : last - prevKpi;
+        const lastDate = allSnapsAsc[allSnapsAsc.length - 1].date;
         html += `
           <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div class="surface surface-hover p-5">
@@ -4073,21 +4158,21 @@
             </div>
             <div class="surface surface-hover p-5">
               <div class="t-caption text-slate-500 mb-1">Variação vs snapshot anterior</div>
-              <div class="text-2xl font-semibold ${diff == null ? "text-slate-400" : diff >= 0 ? "text-emerald-400" : "text-rose-400"}">
-                ${diff == null ? "—" : (diff >= 0 ? "+" : "") + fmtBRL(diff)}
+              <div class="text-2xl font-semibold ${diffKpi == null ? "text-slate-400" : diffKpi >= 0 ? "text-emerald-400" : "text-rose-400"}">
+                ${diffKpi == null ? "—" : (diffKpi >= 0 ? "+" : "") + fmtBRL(diffKpi)}
               </div>
-              <div class="t-small text-slate-500 mt-1">${diff == null ? "primeiro snapshot" : `${(diff/prev*100).toFixed(2).replace(".",",")}%`}</div>
+              <div class="t-small text-slate-500 mt-1">${diffKpi == null ? "primeiro snapshot" : `${(diffKpi/prevKpi*100).toFixed(2).replace(".",",")}%`}</div>
             </div>
             <div class="surface surface-hover p-5">
               <div class="t-caption text-slate-500 mb-1">Snapshots cadastrados</div>
-              <div class="text-2xl font-semibold text-slate-200">${snapsAsc.length}</div>
+              <div class="text-2xl font-semibold text-slate-200">${allSnapsAsc.length}</div>
               <div class="t-small text-slate-500 mt-1">${accs.length} contas monitoradas</div>
             </div>
           </section>
         `;
       }
 
-      if (!snapsAsc.length) {
+      if (!allSnapsAsc.length) {
         html += `
           <section class="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center">
             <div class="text-slate-300 mb-2 font-medium">Nenhum snapshot ainda</div>
@@ -4101,103 +4186,172 @@
         return;
       }
 
-      // Matriz contas × snapshots
-      const headerCells = snapsDesc.map(s => `
-        <th class="px-4 py-3 text-right" style="min-width:140px">
-          <div class="flex items-center justify-end gap-1.5">
-            <span class="text-slate-300">${dateBR(s.date)}</span>
-            <button onclick="caixaRemoveSnapshot('${s.date}')" class="opacity-30 hover:opacity-100 hover:text-rose-400 transition" title="Remover snapshot">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+      // ── Table header (oldest → newest, left → right) ─────────────
+      const colCount = displaySnapsAsc.length;
+      const headerCells = displaySnapsAsc.map(s => {
+        const isVirtual = s._virtual;
+        const isToday = s.date === todayISO;
+        return `<th class="px-2 py-3 text-right border-l border-slate-800/60" style="min-width:128px">
+          <div class="flex items-center justify-end gap-1">
+            <span class="text-xs ${isToday ? "text-emerald-400 font-bold" : isVirtual ? "text-slate-600 italic" : "text-slate-300"}">${dateBR(s.date)}</span>
+            ${!isVirtual ? `<button onclick="caixaRemoveSnapshot('${s.date}')" class="opacity-20 hover:opacity-100 hover:text-rose-400 transition" title="Remover snapshot">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>` : ""}
           </div>
-        </th>
-      `).join("");
-
-      const todayISO = new Date().toISOString().slice(0, 10);
-      const accountRows = accs.map(acc => {
-        const isAutoManaged = /lootrush|wise.*cnpj|wise.*llp|buygoods/i.test(acc.name);
-        const liveDot = isAutoManaged
-          ? `<span class="inline-block ml-1.5" title="Atualizado automaticamente via API"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span></span>`
-          : "";
-        return `
-          <tr class="border-t border-slate-800 hover:bg-slate-800/30">
-            <td class="px-4 py-2 text-left not-num sticky left-0 bg-slate-900 z-10 text-slate-200">
-              <span class="inline-flex items-center">${escapeHtml(acc.name)}${liveDot}</span>
-            </td>
-            <td class="px-3 py-2 text-left not-num text-slate-500 text-xs">${acc.currency}</td>
-            ${snapsDesc.map(s => {
-              const v = s.balances[acc.id];
-              const isLiveCell = isAutoManaged && s.date === todayISO;
-              const cellBg = isLiveCell ? "bg-emerald-950/20" : "";
-              const inputCls = isLiveCell
-                ? "caixa-input w-full bg-transparent border border-emerald-500/30 rounded px-2 py-1 text-right text-emerald-300 focus:outline-none focus:border-emerald-500 text-sm font-medium"
-                : "caixa-input w-full bg-transparent border border-transparent hover:border-slate-700 focus:border-emerald-500 rounded px-2 py-1 text-right text-slate-200 focus:outline-none focus:bg-slate-950 text-sm";
-              return `<td class="px-2 py-1 text-right ${cellBg}">
-                <input type="text"
-                  value="${v == null ? "" : caixaFormatNumber(v)}"
-                  data-caixa-cell="${s.date}|${acc.id}"
-                  oninput="caixaSetCell('${s.date}', '${acc.id}', this.value)"
-                  onblur="caixaFormatCell(this)"
-                  onkeydown="caixaCellKey(event, this)"
-                  ${isLiveCell ? 'title="Live via API · sobrescrito automaticamente ao reabrir a view"' : ""}
-                  class="${inputCls}" />
-              </td>`;
-            }).join("")}
-          </tr>
-        `;
+        </th>`;
       }).join("");
 
-      const ptaxRows = `
-        <tr class="border-t-2 border-slate-700 bg-slate-950/60">
-          <td class="px-4 py-2 text-left text-xs text-slate-400 italic sticky left-0 bg-slate-950 z-10" colspan="2">PTAX USD → BRL</td>
-          ${snapsDesc.map(s => `
-            <td class="px-2 py-1 text-right">
-              <input type="text"
-                value="${s.ptaxUsd ? caixaFormatNumber(s.ptaxUsd) : ""}"
-                data-caixa-ptax="${s.date}|usd"
-                oninput="caixaSetPtax('${s.date}', 'usd', this.value)"
-                onblur="caixaFormatCell(this)"
-                onkeydown="caixaCellKey(event, this)"
-                class="caixa-input w-full bg-transparent border border-transparent hover:border-slate-700 focus:border-emerald-500 rounded px-2 py-1 text-right text-slate-300 focus:outline-none focus:bg-slate-900 text-sm" />
-            </td>
-          `).join("")}
-        </tr>
-        <tr class="bg-slate-950/60">
-          <td class="px-4 py-2 text-left text-xs text-slate-400 italic sticky left-0 bg-slate-950 z-10" colspan="2">PTAX EUR → BRL</td>
-          ${snapsDesc.map(s => `
-            <td class="px-2 py-1 text-right">
-              <input type="text"
-                value="${s.ptaxEur ? caixaFormatNumber(s.ptaxEur) : ""}"
-                data-caixa-ptax="${s.date}|eur"
-                oninput="caixaSetPtax('${s.date}', 'eur', this.value)"
-                onblur="caixaFormatCell(this)"
-                onkeydown="caixaCellKey(event, this)"
-                class="caixa-input w-full bg-transparent border border-transparent hover:border-slate-700 focus:border-emerald-500 rounded px-2 py-1 text-right text-slate-300 focus:outline-none focus:bg-slate-900 text-sm" />
-            </td>
-          `).join("")}
-        </tr>
-      `;
+      // ── Inner helper: render one account row ─────────────────────
+      function renderAccRow(acc, rowIndex) {
+        const isAutoManaged = /lootrush|wise.*cnpj|wise.*llp|buygoods/i.test(acc.name);
+        const sym = caixaCurrSymbol(acc.currency);
+        const liveDot = isAutoManaged
+          ? `<span class="inline-block ml-1" title="Atualizado automaticamente via API"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span></span>`
+          : "";
+        // Alternating rows
+        const rowBg   = rowIndex % 2 === 0 ? "bg-slate-900"    : "bg-slate-800/20";
+        const stkyBg  = rowIndex % 2 === 0 ? "bg-slate-900"    : "bg-[#1b2030]";
 
-      const totalRow = `
-        <tr class="bg-emerald-950/30 font-semibold">
-          <td class="px-4 py-3 text-left sticky left-0 bg-emerald-950/40 z-10 text-emerald-300" colspan="2">Caixa Total (BRL)</td>
-          ${snapsDesc.map((s, i) => {
-            const idx = snapsAsc.length - 1 - i;
-            return `<td class="px-4 py-3 text-right text-emerald-400" data-caixa-total="${s.date}">${fmtBRL(totals[idx])}</td>`;
+        const cells = displaySnapsAsc.map(s => {
+          const v = s.balances[acc.id];
+          const isToday = s.date === todayISO;
+          const isLive = isAutoManaged && isToday && !s._virtual;
+
+          // Green / red vs chronologically previous real snapshot
+          const pv = prevValue(s.date, acc.id);
+          let textCls;
+          if (isLive) {
+            textCls = "text-emerald-300 font-medium";
+          } else if (v != null && pv != null) {
+            textCls = v > pv ? "text-emerald-400" : v < pv ? "text-rose-400" : "text-slate-200";
+          } else {
+            textCls = v != null ? "text-slate-200" : "text-slate-600/60";
+          }
+
+          // Filled cell gets subtle background; live cell gets green tint
+          const cellBg = isLive ? "bg-emerald-950/30" : v != null ? "bg-slate-800/35" : "";
+          const bdrCls = isLive ? "border-emerald-500/25 hover:border-emerald-500/50" : "border-transparent hover:border-slate-600/70";
+
+          return `<td class="px-1 py-0.5 border-l border-slate-800/40 ${cellBg}">
+            <div class="flex items-center">
+              <span class="text-slate-500/70 text-xs pl-1.5 pr-0.5 shrink-0 select-none font-mono">${sym}</span>
+              <input type="text"
+                value="${v == null ? "" : caixaFormatNumber(v)}"
+                data-caixa-cell="${s.date}|${acc.id}"
+                oninput="caixaSetCell('${s.date}', '${acc.id}', this.value)"
+                onblur="caixaFormatCell(this)"
+                onkeydown="caixaCellKey(event, this)"
+                ${isLive ? 'title="Live via API · atualizado automaticamente"' : ""}
+                class="caixa-input min-w-0 w-full bg-transparent border ${bdrCls} rounded px-1 py-0.5 text-right ${textCls} focus:outline-none focus:border-emerald-500 focus:bg-slate-950/60 text-sm transition-colors" />
+            </div>
+          </td>`;
+        }).join("");
+
+        return `<tr class="${rowBg} border-t border-slate-800/50 hover:brightness-110 transition-all">
+          <td class="px-3 py-1.5 text-left not-num sticky left-0 z-10 ${stkyBg} border-r border-slate-800/60">
+            <span class="inline-flex items-center text-slate-200 text-sm">${escapeHtml(acc.name)}${liveDot}</span>
+          </td>
+          ${cells}
+        </tr>`;
+      }
+
+      // ── Build grouped rows ───────────────────────────────────────
+      const groupedAccs = {};
+      CAIXA_GROUPS.forEach(g => { groupedAccs[g.key] = []; });
+      const ungroupedAccs = [];
+      accs.forEach(acc => {
+        const g = caixaGetGroup(acc.name);
+        if (g) groupedAccs[g.key].push(acc);
+        else ungroupedAccs.push(acc);
+      });
+
+      const chevSvg = `<svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>`;
+      let rowIdx = 0;
+      let allRowsHtml = "";
+
+      ungroupedAccs.forEach(acc => { allRowsHtml += renderAccRow(acc, rowIdx++); });
+
+      CAIXA_GROUPS.forEach(g => {
+        const list = groupedAccs[g.key];
+        if (!list || !list.length) return;
+        const collapsed = caixaState.collapsedGroups.has(g.key);
+        allRowsHtml += `
+          <tr class="bg-slate-950/80 border-t-2 border-slate-700/80 cursor-pointer select-none hover:bg-slate-900/80 transition-colors"
+              onclick="caixaToggleGroup('${g.key}')">
+            <td colspan="${colCount + 1}" class="px-4 py-2">
+              <div class="flex items-center gap-2">
+                <span class="transition-transform inline-block ${collapsed ? "" : "rotate-90"}">${chevSvg}</span>
+                <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider">${escapeHtml(g.label)}</span>
+                <span class="text-xs text-slate-500 font-normal normal-case">${list.length} conta${list.length === 1 ? "" : "s"}</span>
+              </div>
+            </td>
+          </tr>`;
+        if (!collapsed) list.forEach(acc => { allRowsHtml += renderAccRow(acc, rowIdx++); });
+      });
+
+      // ── PTAX rows ────────────────────────────────────────────────
+      const ptaxRowsHtml = `
+        <tr class="border-t-2 border-slate-700/80 bg-slate-950/70">
+          <td class="px-4 py-1.5 text-left text-xs text-slate-500 italic sticky left-0 bg-slate-950 z-10 border-r border-slate-800/60">PTAX USD → BRL</td>
+          ${displaySnapsAsc.map(s => {
+            const v = s.ptaxUsd;
+            return `<td class="px-1 py-0.5 border-l border-slate-800/40 ${v != null ? "bg-slate-800/25" : ""}">
+              <div class="flex items-center">
+                <span class="text-slate-600/70 text-xs pl-1.5 pr-0.5 shrink-0 select-none font-mono">R$</span>
+                <input type="text"
+                  value="${v ? caixaFormatNumber(v) : ""}"
+                  data-caixa-ptax="${s.date}|usd"
+                  oninput="caixaSetPtax('${s.date}', 'usd', this.value)"
+                  onblur="caixaFormatCell(this)"
+                  onkeydown="caixaCellKey(event, this)"
+                  class="caixa-input min-w-0 w-full bg-transparent border border-transparent hover:border-slate-700 focus:border-emerald-500 rounded px-1 py-0.5 text-right text-slate-500 text-xs focus:outline-none focus:bg-slate-950 transition-colors" />
+              </div>
+            </td>`;
+          }).join("")}
+        </tr>
+        <tr class="bg-slate-950/70">
+          <td class="px-4 py-1.5 text-left text-xs text-slate-500 italic sticky left-0 bg-slate-950 z-10 border-r border-slate-800/60">PTAX EUR → BRL</td>
+          ${displaySnapsAsc.map(s => {
+            const v = s.ptaxEur;
+            return `<td class="px-1 py-0.5 border-l border-slate-800/40 ${v != null ? "bg-slate-800/25" : ""}">
+              <div class="flex items-center">
+                <span class="text-slate-600/70 text-xs pl-1.5 pr-0.5 shrink-0 select-none font-mono">R$</span>
+                <input type="text"
+                  value="${v ? caixaFormatNumber(v) : ""}"
+                  data-caixa-ptax="${s.date}|eur"
+                  oninput="caixaSetPtax('${s.date}', 'eur', this.value)"
+                  onblur="caixaFormatCell(this)"
+                  onkeydown="caixaCellKey(event, this)"
+                  class="caixa-input min-w-0 w-full bg-transparent border border-transparent hover:border-slate-700 focus:border-emerald-500 rounded px-1 py-0.5 text-right text-slate-500 text-xs focus:outline-none focus:bg-slate-950 transition-colors" />
+              </div>
+            </td>`;
           }).join("")}
         </tr>
       `;
 
-      const diffRow = `
-        <tr class="bg-slate-950/40">
-          <td class="px-4 py-3 text-left text-xs text-slate-400 sticky left-0 bg-slate-950 z-10" colspan="2">Diferença vs anterior</td>
-          ${snapsDesc.map((s, i) => {
-            const idx = snapsAsc.length - 1 - i;
-            const d = idx === 0 ? null : totals[idx] - totals[idx - 1];
-            if (d == null) return `<td class="px-4 py-3 text-right text-slate-600 text-xs" data-caixa-diff="${s.date}">—</td>`;
+      // ── Total & Diff footer rows ─────────────────────────────────
+      const totalRowHtml = `
+        <tr class="bg-emerald-950/30 font-semibold">
+          <td class="px-4 py-2.5 text-left sticky left-0 bg-emerald-950/50 z-10 text-emerald-300 text-sm border-r border-slate-800/60">Caixa Total (BRL)</td>
+          ${displaySnapsAsc.map((s, i) => {
+            const t = displayTotals[i];
+            const prevT = i > 0 ? displayTotals[i - 1] : (allSnapsAsc.length ? caixaSnapshotTotal(allSnapsAsc.filter(x => x.date < s.date).slice(-1)[0] || {balances:{}}) : null);
+            const cls = t && prevT ? (t > prevT ? "text-emerald-400" : t < prevT ? "text-rose-400" : "text-emerald-300") : "text-emerald-300";
+            return `<td class="px-3 py-2.5 text-right ${cls} text-sm border-l border-slate-800/50" data-caixa-total="${s.date}">${t ? fmtBRL(t) : "—"}</td>`;
+          }).join("")}
+        </tr>
+      `;
+
+      const diffRowHtml = `
+        <tr class="bg-slate-950/50">
+          <td class="px-4 py-2 text-left text-xs text-slate-500 sticky left-0 bg-slate-950 z-10 border-r border-slate-800/60">Variação</td>
+          ${displaySnapsAsc.map((s, i) => {
+            if (i === 0) return `<td class="px-3 py-2 text-right text-slate-600 text-xs border-l border-slate-800/50" data-caixa-diff="${s.date}">—</td>`;
+            const cur = displayTotals[i], prv = displayTotals[i - 1];
+            if (!cur || !prv) return `<td class="px-3 py-2 text-right text-slate-600 text-xs border-l border-slate-800/50" data-caixa-diff="${s.date}">—</td>`;
+            const d = cur - prv;
             const cls = d >= 0 ? "text-emerald-400" : "text-rose-400";
-            const sign = d >= 0 ? "+" : "";
-            return `<td class="px-4 py-3 text-right ${cls} text-xs" data-caixa-diff="${s.date}">${sign}${fmtBRL(d)}</td>`;
+            return `<td class="px-3 py-2 text-right ${cls} text-xs border-l border-slate-800/50" data-caixa-diff="${s.date}">${d >= 0 ? "+" : ""}${fmtBRL(d)}</td>`;
           }).join("")}
         </tr>
       `;
@@ -4205,21 +4359,20 @@
       html += `
         <section class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
           <div class="overflow-x-auto scroll-thin">
-            <table class="w-full text-sm num">
-              <thead class="bg-slate-950 text-xs uppercase tracking-wider text-slate-400">
+            <table class="w-full text-sm num border-collapse">
+              <thead class="bg-slate-950 text-xs uppercase tracking-wider text-slate-400 sticky top-0 z-20">
                 <tr>
-                  <th class="px-4 py-3 text-left not-num sticky left-0 bg-slate-950 z-20" style="min-width:240px">Conta</th>
-                  <th class="px-3 py-3 text-left not-num" style="width:70px">Moeda</th>
+                  <th class="px-4 py-3 text-left not-num sticky left-0 bg-slate-950 z-30 border-r border-slate-800" style="min-width:220px">Conta</th>
                   ${headerCells}
                 </tr>
               </thead>
               <tbody>
-                ${accountRows}
-                ${ptaxRows}
+                ${allRowsHtml}
+                ${ptaxRowsHtml}
               </tbody>
               <tfoot class="border-t-2 border-slate-700">
-                ${totalRow}
-                ${diffRow}
+                ${totalRowHtml}
+                ${diffRowHtml}
               </tfoot>
             </table>
           </div>
@@ -4297,8 +4450,12 @@
     }
 
     function caixaSetCell(date, accId, raw) {
-      const snap = caixaState.snapshots.find(s => s.date === date);
-      if (!snap) return;
+      let snap = caixaState.snapshots.find(s => s.date === date);
+      if (!snap) {
+        // Auto-cria snapshot ao digitar em coluna virtual (seg/qua/sex sem snapshot)
+        snap = { date, ptaxUsd: null, ptaxEur: null, balances: {} };
+        caixaState.snapshots.push(snap);
+      }
       const n = caixaParseNumber(raw);
       if (n == null) delete snap.balances[accId];
       else snap.balances[accId] = n;
@@ -4307,8 +4464,11 @@
     }
 
     function caixaSetPtax(date, kind, raw) {
-      const snap = caixaState.snapshots.find(s => s.date === date);
-      if (!snap) return;
+      let snap = caixaState.snapshots.find(s => s.date === date);
+      if (!snap) {
+        snap = { date, ptaxUsd: null, ptaxEur: null, balances: {} };
+        caixaState.snapshots.push(snap);
+      }
       const n = caixaParseNumber(raw);
       const field = kind === "usd" ? "ptaxUsd" : "ptaxEur";
       if (n == null) delete snap[field];
@@ -4318,26 +4478,50 @@
     }
 
     function caixaRefreshTotals() {
-      const snapsAsc = [...caixaState.snapshots].sort((a, b) => a.date.localeCompare(b.date));
-      const totals = snapsAsc.map(caixaSnapshotTotal);
-      snapsAsc.forEach((s, idx) => {
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const currentYM = todayISO.slice(0, 7);
+      const selYM = caixaState.selectedMonth || currentYM;
+      const monthDates = caixaGetMonthDates(selYM);
+      const allSnapsAsc = [...caixaState.snapshots].sort((a, b) => a.date.localeCompare(b.date));
+      const realSnapsByDate = {};
+      allSnapsAsc.forEach(s => { realSnapsByDate[s.date] = s; });
+      const displaySnapsAsc = monthDates.map(date =>
+        realSnapsByDate[date] || { date, _virtual: true, ptaxUsd: null, ptaxEur: null, balances: {} }
+      );
+      const displayTotals = displaySnapsAsc.map(caixaSnapshotTotal);
+
+      displaySnapsAsc.forEach((s, i) => {
         const totalCell = document.querySelector(`[data-caixa-total="${s.date}"]`);
-        const diffCell = document.querySelector(`[data-caixa-diff="${s.date}"]`);
-        if (totalCell) totalCell.textContent = fmtBRL(totals[idx]);
+        const diffCell  = document.querySelector(`[data-caixa-diff="${s.date}"]`);
+        const t    = displayTotals[i];
+        const prevT = i > 0 ? displayTotals[i - 1] : null;
+
+        if (totalCell) {
+          totalCell.textContent = t ? fmtBRL(t) : "—";
+          const cls = t && prevT ? (t > prevT ? "text-emerald-400" : t < prevT ? "text-rose-400" : "text-emerald-300") : "text-emerald-300";
+          totalCell.className = `px-3 py-2.5 text-right ${cls} text-sm border-l border-slate-800/50`;
+          totalCell.setAttribute("data-caixa-total", s.date);
+        }
         if (diffCell) {
-          if (idx === 0) {
+          if (i === 0) {
             diffCell.textContent = "—";
-            diffCell.className = "px-4 py-3 text-right text-slate-600 text-xs";
+            diffCell.className = "px-3 py-2 text-right text-slate-600 text-xs border-l border-slate-800/50";
           } else {
-            const d = totals[idx] - totals[idx - 1];
-            const cls = d >= 0 ? "text-emerald-400" : "text-rose-400";
-            const sign = d >= 0 ? "+" : "";
-            diffCell.textContent = `${sign}${fmtBRL(d)}`;
-            diffCell.className = `px-4 py-3 text-right ${cls} text-xs`;
+            const cur = displayTotals[i], prv = displayTotals[i - 1];
+            if (!cur || !prv) {
+              diffCell.textContent = "—";
+              diffCell.className = "px-3 py-2 text-right text-slate-600 text-xs border-l border-slate-800/50";
+            } else {
+              const d = cur - prv;
+              const cls = d >= 0 ? "text-emerald-400" : "text-rose-400";
+              diffCell.textContent = `${d >= 0 ? "+" : ""}${fmtBRL(d)}`;
+              diffCell.className = `px-3 py-2 text-right ${cls} text-xs border-l border-slate-800/50`;
+            }
+            diffCell.setAttribute("data-caixa-diff", s.date);
           }
-          diffCell.setAttribute("data-caixa-diff", s.date);
         }
       });
+
     }
 
     async function caixaAddSnapshot() {

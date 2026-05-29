@@ -134,6 +134,17 @@
     .nav-btn svg { color: var(--text-4); transition: color var(--transition); }
     .nav-btn:hover svg, .nav-btn.active svg { color: var(--accent); }
 
+    /* ── Resumo por Mês grid (3fr 2fr on desktop) ───────────── */
+    #resumo-mes-grid { grid-template-columns: 1fr; }
+    @media (min-width: 1024px) { #resumo-mes-grid { grid-template-columns: 3fr 2fr; } }
+
+    /* ── Sidebar collapse ───────────────────────────────────── */
+    #sidebar { transition: width 0.2s ease, min-width 0.2s ease; overflow: hidden; }
+    #sidebar.sidebar-collapsed { width: 0 !important; min-width: 0 !important; border-right-width: 0; }
+    #sidebar-reopen-btn { display: none; }
+    #sidebar.sidebar-collapsed ~ * { /* nothing */ }
+    body.sb-collapsed #sidebar-reopen-btn { display: flex; }
+
     /* ── Animations ─────────────────────────────────────────── */
     @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
     .animate-fade-in { animation: fadeIn 220ms ease-out; }
@@ -242,6 +253,16 @@
           </div>
         </div>
 
+        <!-- Entity filter: CNPJ vs LLP -->
+        <div class="flex items-center gap-0.5 mr-1" id="entity-filter-group">
+          <button onclick="setEntityFilter(null)" id="entity-btn-all"
+            class="entity-btn px-2.5 py-1.5 text-xs rounded-lg border border-emerald-500 text-emerald-300 bg-emerald-500/10 font-medium transition select-none">Todas</button>
+          <button onclick="setEntityFilter('cnpj')" id="entity-btn-cnpj"
+            class="entity-btn px-2.5 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-300 hover:border-slate-500 font-medium transition select-none">CNPJ</button>
+          <button onclick="setEntityFilter('llp')" id="entity-btn-llp"
+            class="entity-btn px-2.5 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-300 hover:border-slate-500 font-medium transition select-none">LLP</button>
+        </div>
+
         <!-- Account multi-select -->
         <div class="relative" id="account-picker-wrap">
           <button id="account-picker-btn"
@@ -265,10 +286,23 @@
 
   <div id="app-layout" class="flex">
 
+    <!-- Sidebar reopen tab (visible only when collapsed) -->
+    <button id="sidebar-reopen-btn" onclick="toggleSidebar()"
+      class="fixed left-0 top-1/2 -translate-y-1/2 z-30 bg-slate-800 border border-l-0 border-slate-700 rounded-r-lg py-4 px-1 text-slate-400 hover:text-white hover:bg-slate-700 transition no-print">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+
     <!-- ── Sidebar ────────────────────────────────────────── -->
     <aside id="sidebar"
            class="w-56 shrink-0 bg-slate-900 border-r border-slate-800 sticky overflow-y-auto z-10 no-print">
       <nav class="p-3 pt-5 pb-8 space-y-5" id="sidebar-nav">
+        <!-- Collapse toggle -->
+        <div class="flex justify-end mb-1">
+          <button onclick="toggleSidebar()" title="Recolher menu"
+            class="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+        </div>
 
         <!-- Visão geral -->
         <div>
@@ -587,10 +621,17 @@
         <main class="max-w-7xl mx-auto px-6 py-8 space-y-6">
 
           <!-- Header da view -->
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4 flex-wrap">
             <div>
               <h1 class="text-xl font-semibold tracking-tight">Resumo de Entradas e Saídas</h1>
               <p class="text-xs text-slate-400 mt-0.5">Transações agrupadas por categoria · respeita os filtros do header</p>
+            </div>
+            <div class="relative">
+              <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input id="resumo-search" type="search"
+                     placeholder="Pesquisar por nome..."
+                     oninput="renderResumo()"
+                     class="bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-sm w-60 focus:outline-none focus:border-emerald-500 focus:w-72 transition-all placeholder-slate-600" />
             </div>
           </div>
 
@@ -1192,6 +1233,35 @@
     // Filters
     // ============================================================
     let selectedAccounts = new Set(); // empty = all
+    let selectedEntity   = null;      // null | "cnpj" | "llp"
+
+    function setEntityFilter(entity) {
+      selectedEntity = entity;
+      selectedAccounts.clear();
+      if (entity === "cnpj") {
+        state.accounts.filter(a => /\bBR\b|CNPJ/i.test(a.name)).forEach(a => selectedAccounts.add(a.id));
+      } else if (entity === "llp") {
+        state.accounts.filter(a => /\bLLP\b/i.test(a.name)).forEach(a => selectedAccounts.add(a.id));
+      }
+      // Atualiza visual dos botões
+      document.querySelectorAll(".entity-btn").forEach(b => {
+        b.classList.remove("border-emerald-500","text-emerald-300","bg-emerald-500/10");
+        b.classList.add("border-slate-700","text-slate-300");
+      });
+      const activeBtn = document.getElementById(entity ? `entity-btn-${entity}` : "entity-btn-all");
+      if (activeBtn) {
+        activeBtn.classList.add("border-emerald-500","text-emerald-300","bg-emerald-500/10");
+        activeBtn.classList.remove("border-slate-700","text-slate-300");
+      }
+      // Sincroniza os checkboxes do account picker
+      document.querySelectorAll(".acc-check").forEach(cb => {
+        cb.checked = selectedAccounts.size === 0 || selectedAccounts.has(cb.dataset.accid);
+      });
+      const accAll = document.getElementById("acc-all");
+      if (accAll) accAll.checked = selectedAccounts.size === 0;
+      updateAccountLabel();
+      render();
+    }
     let _imports = {};
 
     function refreshAccountFilter() {
@@ -1920,7 +1990,15 @@
 
     document.getElementById("acc-all").addEventListener("change", () => {
       selectedAccounts.clear();
+      selectedEntity = null;
       document.querySelectorAll(".acc-check").forEach(cb => cb.checked = true);
+      // reset entity buttons visual
+      document.querySelectorAll(".entity-btn").forEach(b => {
+        b.classList.remove("border-emerald-500","text-emerald-300","bg-emerald-500/10");
+        b.classList.add("border-slate-700","text-slate-300");
+      });
+      const allBtn = document.getElementById("entity-btn-all");
+      if (allBtn) { allBtn.classList.add("border-emerald-500","text-emerald-300","bg-emerald-500/10"); allBtn.classList.remove("border-slate-700","text-slate-300"); }
       updateAccountLabel(); render();
     });
 
@@ -1931,6 +2009,14 @@
       document.querySelectorAll(".acc-check").forEach(c => { if (c.checked) selectedAccounts.add(c.dataset.accid); });
       if (selectedAccounts.size === state.accounts.length) selectedAccounts.clear();
       document.getElementById("acc-all").checked = selectedAccounts.size === 0;
+      // Manual selection → clear entity filter visual
+      selectedEntity = null;
+      document.querySelectorAll(".entity-btn").forEach(b => {
+        b.classList.remove("border-emerald-500","text-emerald-300","bg-emerald-500/10");
+        b.classList.add("border-slate-700","text-slate-300");
+      });
+      const allBtn = document.getElementById("entity-btn-all");
+      if (allBtn) { allBtn.classList.add("border-emerald-500","text-emerald-300","bg-emerald-500/10"); allBtn.classList.remove("border-slate-700","text-slate-300"); }
       updateAccountLabel(); render();
     });
 
@@ -2037,6 +2123,24 @@
     updateSidebarLayout();
     window.addEventListener("resize", updateSidebarLayout);
 
+    function toggleSidebar() {
+      const sidebar  = document.getElementById("sidebar");
+      const reopenBtn = document.getElementById("sidebar-reopen-btn");
+      const isCollapsed = sidebar.classList.contains("sidebar-collapsed");
+      sidebar.classList.toggle("sidebar-collapsed", !isCollapsed);
+      document.body.classList.toggle("sb-collapsed", !isCollapsed);
+      if (reopenBtn) reopenBtn.style.display = isCollapsed ? "none" : "flex";
+      localStorage.setItem("sidebarCollapsed", isCollapsed ? "0" : "1");
+    }
+
+    // Restore sidebar state on load
+    if (localStorage.getItem("sidebarCollapsed") === "1") {
+      document.getElementById("sidebar")?.classList.add("sidebar-collapsed");
+      document.body.classList.add("sb-collapsed");
+      const rb = document.getElementById("sidebar-reopen-btn");
+      if (rb) rb.style.display = "flex";
+    }
+
     // ============================================================
     // View switching
     // ============================================================
@@ -2109,7 +2213,7 @@
       { id: "cartao",         label: "Cartão",                cor: "#f97316", tipo: "saida",
         match: t => t.type === "expense" &&
           /cart[aã]o/i.test(t.category || "") },
-      { id: "transferencia-interna", label: "Transferência Interna", cor: "#a855f7", tipo: "saida",
+      { id: "transferencia-interna", label: "Transferência Interna", cor: "#a855f7", tipo: "interna",
         match: t => t.type === "transfer" },
       { id: "outros",         label: "Outras Saídas",         cor: "#6b7280", tipo: "saida",
         match: t => t.type === "expense" },
@@ -2218,15 +2322,78 @@
     }
 
     // ============================================================
+    // Transfer match popup — mostra a contrapartida de transferências internas
+    // ============================================================
+    function showTransferMatch(btn, amount, date, fromAccount) {
+      document.querySelectorAll(".transfer-match-popup").forEach(p => p.remove());
+
+      // Busca em todas as contas por transação correspondente (crédito, valor similar, data próxima)
+      const matches = [];
+      const dateMs  = new Date(date + "T12:00:00").getTime();
+      for (const acc of state.accounts) {
+        if (acc.name === fromAccount) continue;
+        for (const t of acc.transactions) {
+          const tAmt = Number(t.credit) || 0;
+          if (tAmt <= 0) continue;
+          const diff     = Math.abs(tAmt - amount) / Math.max(amount, 1);
+          const daysDiff = Math.abs(new Date(t.date + "T12:00:00").getTime() - dateMs) / 86400000;
+          if (diff < 0.06 && daysDiff <= 4) {
+            matches.push({ acc: acc.name, t, diff, daysDiff, tAmt });
+          }
+        }
+      }
+      matches.sort((a, b) => a.diff - b.diff || a.daysDiff - b.daysDiff);
+
+      const popup = document.createElement("div");
+      popup.className = "transfer-match-popup fixed z-50 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl p-4 text-xs max-w-sm";
+
+      if (!matches.length) {
+        popup.innerHTML = `<div class="text-slate-400 text-center py-2">Nenhuma contrapartida encontrada<br><span class="text-slate-600">(pode estar fora do período importado)</span></div>`;
+      } else {
+        const rows = matches.slice(0, 3).map(m => {
+          const fee = Math.abs(m.tAmt - amount);
+          const feeStr = fee > 0.01 ? `<span class="text-slate-500 ml-2">−${fmt(fee)} taxas</span>` : "";
+          return `<div class="mt-2 pt-2 border-t border-slate-700 first:border-0 first:mt-0 first:pt-0">
+            <div class="flex items-center gap-2">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              <span class="text-emerald-400 font-semibold">${fmt(m.tAmt)}${feeStr}</span>
+            </div>
+            <div class="text-slate-300 mt-0.5 font-medium">${m.acc}</div>
+            <div class="text-slate-500 mt-0.5 truncate" title="${m.t.description||''}">${m.t.date} · ${(m.t.description||"").slice(0,55)}</div>
+          </div>`;
+        }).join("");
+        popup.innerHTML = `<div class="text-slate-400 text-[10px] uppercase tracking-wider font-semibold mb-2">Destino da transferência</div>${rows}`;
+      }
+
+      document.body.appendChild(popup);
+      const rect = btn.getBoundingClientRect();
+      const pw = 320;
+      let left = rect.left + rect.width / 2 - pw / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+      popup.style.cssText += `width:${pw}px;top:${rect.bottom + window.scrollY + 6}px;left:${left}px`;
+
+      const close = e => { if (!popup.contains(e.target) && e.target !== btn) { popup.remove(); document.removeEventListener("click", close); } };
+      setTimeout(() => document.addEventListener("click", close), 80);
+    }
+
+    // ============================================================
     // Render: Resumo de Entradas e Saídas
     // ============================================================
     function renderResumo() {
       const el = document.getElementById("resumo-content");
       if (!el) return;
 
-      const txs = getFilteredTxs();
+      let txs = getFilteredTxs();
+      const resumoSearch = (document.getElementById("resumo-search")?.value || "").toLowerCase().trim();
+      if (resumoSearch) {
+        txs = txs.filter(t =>
+          (t.description || "").toLowerCase().includes(resumoSearch) ||
+          (t.merchant    || "").toLowerCase().includes(resumoSearch) ||
+          (t.category    || "").toLowerCase().includes(resumoSearch) ||
+          (t.account     || "").toLowerCase().includes(resumoSearch));
+      }
       if (!txs.length) {
-        el.innerHTML = '<div class="text-center py-16 text-slate-500">Nenhuma transação no período selecionado.</div>';
+        el.innerHTML = `<div class="text-center py-16 text-slate-500">${resumoSearch ? `Nenhuma transação encontrada para "<strong class="text-slate-300">${resumoSearch}</strong>"` : "Nenhuma transação no período selecionado."}</div>`;
         return;
       }
 
@@ -2268,6 +2435,9 @@
         'Redtrack':              'ferramentas',
         'Adspy':                 'ferramentas',
         'Grok':                  'ferramentas',
+        // Intercompanhia — transferências entre contas do grupo
+        'Nextgen Tech Group LLP': 'transferencia-interna',
+        'LootRush LLP':           'transferencia-interna',
       };
       const MERCHANT_PRIO = Object.fromEntries(GRUPOS.map((g, i) => [g.id, i]));
       txs.forEach(t => {
@@ -2322,11 +2492,13 @@
         agg[gid].count++;
       });
 
-      const entradas = GRUPOS.filter(g => g.tipo === "entrada");
-      const saidas   = GRUPOS.filter(g => g.tipo === "saida");
-      const totalIn  = entradas.reduce((s, g) => s + agg[g.id].total, 0);
-      const totalOut = saidas.reduce((s, g)   => s + agg[g.id].total, 0);
-      const net      = totalIn - totalOut;
+      const entradas  = GRUPOS.filter(g => g.tipo === "entrada");
+      const saidas    = GRUPOS.filter(g => g.tipo === "saida");
+      const internas  = GRUPOS.filter(g => g.tipo === "interna");
+      const totalIn   = entradas.reduce((s, g) => s + agg[g.id].total, 0);
+      const totalOut  = saidas.reduce((s, g)   => s + agg[g.id].total, 0);
+      const totalInt  = internas.reduce((s, g) => s + agg[g.id].total, 0);
+      const net       = totalIn - totalOut;
       const netCls   = net >= 0 ? "text-emerald-400" : "text-rose-400";
 
       // Group row builder — 3-level: Group → Company → Transaction
@@ -2346,9 +2518,9 @@
         let total = 0;
         groupTxs.forEach(t => { total += txAmount(t); });
         const count  = groupTxs.length;
-        const base   = g.tipo === "entrada" ? baseIn : baseOut;
+        const base   = g.tipo === "entrada" ? baseIn : g.tipo === "interna" ? Math.max(baseIn, baseOut) || 1 : baseOut;
         const pct    = base > 0 ? (total / base * 100) : 0;
-        const valCls = g.tipo === "entrada" ? "text-emerald-400" : "text-rose-400";
+        const valCls = g.tipo === "entrada" ? "text-emerald-400" : g.tipo === "interna" ? "text-purple-400" : "text-rose-400";
         const rowId  = idPrefix;
         const byCompany = {};
         groupTxs.forEach(t => {
@@ -2371,9 +2543,18 @@
           const txRowsHtml = data.txs.map(t => {
             const amt  = txAmount(t);
             const desc = (t.description || t.memo || t.name || "—").slice(0, 70);
+            const isInterco = txClass.get(t) === 'transferencia-interna';
+            const safeAcc   = (t.account || "").replace(/'/g, "\\'");
+            const eyeBtn    = isInterco
+              ? `<button onclick="event.stopPropagation();showTransferMatch(this,${amt},'${t.date}','${safeAcc}')"
+                   class="shrink-0 text-slate-600 hover:text-blue-400 transition p-0.5 rounded" title="Ver destino">
+                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                 </button>`
+              : `<div class="w-5 shrink-0"></div>`;
             return `<div class="flex items-center gap-3 pl-14 pr-5 py-1.5 border-t border-slate-800/20 bg-slate-950/80 hover:bg-slate-800/10 transition-colors">
               <div class="num text-xs text-slate-600 shrink-0 w-24">${t.date}</div>
               <div class="flex-1 min-w-0 text-xs text-slate-500 truncate" title="${desc}">${desc}</div>
+              ${eyeBtn}
               <div class="num text-xs ${valCls} shrink-0">${fmt(amt)}</div>
             </div>`;
           }).join("");
@@ -2401,7 +2582,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
               </svg>
             </button>
-            <div id="${cId}" class="hidden">${txRowsHtml}</div>
+            <div id="${cId}" class="${resumoSearch ? "" : "hidden"}">${txRowsHtml}</div>
           </div>`;
         }).join("");
 
@@ -2423,11 +2604,11 @@
                   <div class="h-full rounded-full" style="width:${Math.min(100,pct).toFixed(1)}%;background:${g.cor}"></div>
                 </div>
               </div>
-              <svg id="${rowId}-chev" class="w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg id="${rowId}-chev" class="w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200 ${resumoSearch ? "rotate-90" : ""}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
               </svg>
             </button>
-            <div id="${rowId}" class="hidden">${companyRows}</div>
+            <div id="${rowId}" class="${resumoSearch ? "" : "hidden"}">${companyRows}</div>
           </div>`;
       };
 
@@ -2575,6 +2756,51 @@
           </div>`;
       }).join("");
 
+      // ── Per-account monthly breakdown ──────────────────────────────────
+      const byMonthAccount = {};
+      txs.forEach(t => {
+        const mo = t.date.slice(0, 7);
+        if (!byMonthAccount[mo]) byMonthAccount[mo] = {};
+        if (!byMonthAccount[mo][t.account]) byMonthAccount[mo][t.account] = { in: 0, out: 0 };
+        if (t.type === "expense") byMonthAccount[mo][t.account].out += t.debit;
+        else byMonthAccount[mo][t.account].in += t.credit;
+      });
+
+      const resumoPorMesRows = [...months].reverse().map(mo => {
+        const row     = byMonthGroup[mo];
+        const mIn     = entradas.reduce((s, g) => s + (row[g.id] || 0), 0);
+        const mOut    = saidas.reduce((s, g)   => s + (row[g.id] || 0), 0);
+        const mNet    = mIn - mOut;
+        const mNetCls = mNet >= 0 ? "text-emerald-400" : "text-rose-400";
+        const mId     = "moacc_" + mo.replace("-", "_");
+        const accData = byMonthAccount[mo] || {};
+        const accRowsHtml = visibleAccounts.map((acc, idx) => {
+          const d = accData[acc.name];
+          if (!d || (d.in === 0 && d.out === 0)) return "";
+          const aNet    = d.in - d.out;
+          const aNetCls = aNet >= 0 ? "text-emerald-400" : "text-rose-400";
+          const color   = PALETTE[idx % PALETTE.length];
+          return `<div class="flex items-center gap-2 pl-10 pr-5 py-2 border-t border-slate-800/30 bg-slate-950/40 hover:bg-slate-800/10 transition-colors">
+              <div class="w-2 h-2 rounded-full shrink-0" style="background:${color}"></div>
+              <div class="flex-1 min-w-0 text-xs text-slate-300 truncate">${acc.name}</div>
+              <div class="text-right shrink-0 w-32"><div class="text-[10px] text-slate-500">Entradas</div><div class="num text-xs text-emerald-400/90">${d.in > 0 ? fmt(d.in) : "—"}</div></div>
+              <div class="text-right shrink-0 w-32"><div class="text-[10px] text-slate-500">Saídas</div><div class="num text-xs text-rose-400/90">${d.out > 0 ? fmt(d.out) : "—"}</div></div>
+              <div class="text-right shrink-0 w-32"><div class="text-[10px] text-slate-500">Net</div><div class="num text-xs font-semibold ${aNetCls}">${fmt(aNet)}</div></div>
+            </div>`;
+        }).filter(Boolean).join("");
+        return `<div class="border-b border-slate-800/50 last:border-0">
+            <button onclick="toggleGrupo('${mId}')"
+                    class="w-full flex items-center gap-2 px-5 py-3 hover:bg-slate-800/20 transition-colors text-left">
+              <div class="flex-1 text-sm font-medium text-slate-200">${monthName(mo)}</div>
+              <div class="text-right shrink-0 w-32"><div class="text-[10px] uppercase tracking-wider text-slate-500">Entradas</div><div class="num text-xs text-emerald-400">${mIn > 0 ? fmt(mIn) : "—"}</div></div>
+              <div class="text-right shrink-0 w-32"><div class="text-[10px] uppercase tracking-wider text-slate-500">Saídas</div><div class="num text-xs text-rose-400">${mOut > 0 ? fmt(mOut) : "—"}</div></div>
+              <div class="text-right shrink-0 w-32"><div class="text-[10px] uppercase tracking-wider text-slate-500">Net</div><div class="num text-xs font-semibold ${mNetCls}">${fmt(mNet)}</div></div>
+              <svg id="${mId}-chev" class="w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+            <div id="${mId}" class="hidden">${accRowsHtml || '<div class="px-10 py-3 text-xs text-slate-500 italic">Sem dados.</div>'}</div>
+          </div>`;
+      }).join("");
+
       el.innerHTML = `
         <!-- KPIs -->
         <div class="grid grid-cols-3 gap-4">
@@ -2585,6 +2811,7 @@
           <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
             <div class="text-xs uppercase tracking-wider text-slate-400 mb-1">Total Saídas</div>
             <div class="num text-2xl font-semibold text-rose-400">${fmt(totalOut)}</div>
+            ${totalInt > 0 ? `<div class="text-[11px] text-purple-400/70 mt-0.5">+ ${fmt(totalInt)} transf. internas</div>` : ""}
           </div>
           <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
             <div class="text-xs uppercase tracking-wider text-slate-400 mb-1">Resultado</div>
@@ -2636,53 +2863,54 @@
           ` : ""}
         </div>
 
-        <!-- Groups side-by-side -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-800">
-              <h2 class="text-sm font-semibold text-slate-300">Entradas</h2>
-              <span class="num text-sm font-semibold text-emerald-400">${fmt(totalIn)}</span>
-            </div>
-            ${entradas.map(groupRow).join("") || '<p class="text-slate-500 text-sm py-4 text-center">Sem entradas no período</p>'}
-          </div>
-          <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-800">
-              <h2 class="text-sm font-semibold text-slate-300">Saídas</h2>
-              <span class="num text-sm font-semibold text-rose-400">${fmt(totalOut)}</span>
-            </div>
-            ${saidas.map(groupRow).join("") || '<p class="text-slate-500 text-sm py-4 text-center">Sem saídas no período</p>'}
-          </div>
-        </div>
+        <!-- Resumo por Mês + Resumo por Categoria (side by side) -->
+        <div class="grid grid-cols-1 gap-4 items-start" id="resumo-mes-grid">
 
-        <!-- Monthly breakdown -->
-        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          <div class="px-5 py-4 border-b border-slate-800">
-            <h2 class="text-sm font-semibold text-slate-300">Breakdown Mensal por Grupo</h2>
+          <!-- Resumo por Mês -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+              <h2 class="text-sm font-semibold text-slate-300">Resumo por Mês</h2>
+              <span class="text-[11px] text-slate-500">${months.length} ${months.length === 1 ? "mês" : "meses"}</span>
+            </div>
+            ${resumoPorMesRows || '<p class="text-slate-500 text-sm py-6 text-center">Sem dados no período.</p>'}
+            ${resumoPorMesRows ? `
+            <div class="flex items-center gap-2 px-5 py-3 border-t-2 border-slate-700 bg-slate-950/60">
+              <div class="flex-1 text-xs font-semibold text-slate-300">Total (${months.length} ${months.length === 1 ? "mês" : "meses"})</div>
+              <div class="text-right shrink-0 w-32"><div class="text-[10px] uppercase tracking-wider text-slate-500">Entradas</div><div class="num text-xs font-bold text-emerald-400">${fmt(totalIn)}</div></div>
+              <div class="text-right shrink-0 w-32"><div class="text-[10px] uppercase tracking-wider text-slate-500">Saídas</div><div class="num text-xs font-bold text-rose-400">${fmt(totalOut)}</div></div>
+              <div class="text-right shrink-0 w-32"><div class="text-[10px] uppercase tracking-wider text-slate-500">Net</div><div class="num text-xs font-bold ${netCls}">${fmt(net)}</div></div>
+              <div class="w-4 shrink-0"></div>
+            </div>` : ""}
           </div>
-          <div class="overflow-x-auto scroll-thin">
-            <table class="w-full text-sm num">
-              <thead class="bg-slate-950 text-[10px] uppercase tracking-wider">
-                <tr>
-                  <th class="px-4 py-3 text-left not-num text-slate-400">Mês</th>
-                  ${activeGroups.map(g =>
-                    `<th class="px-4 py-3 text-right font-medium" style="color:${g.cor}">${g.label}</th>`
-                  ).join("")}
-                  <th class="px-4 py-3 text-right text-slate-400">NET</th>
-                </tr>
-              </thead>
-              <tbody>${tableRows}</tbody>
-              <tfoot class="border-t-2 border-slate-700 bg-slate-950">
-                <tr class="font-semibold">
-                  <td class="px-4 py-3 not-num text-slate-200 text-xs">Total (${months.length} ${months.length === 1 ? "mês" : "meses"})</td>
-                  ${activeGroups.map(g => {
-                    const v   = agg[g.id].total;
-                    const cls = g.tipo === "entrada" ? "text-emerald-300" : "text-rose-300";
-                    return `<td class="px-4 py-3 text-right num text-xs ${cls}">${fmt(v)}</td>`;
-                  }).join("")}
-                  <td class="px-4 py-3 text-right num text-xs ${netCls}">${fmt(net)}</td>
-                </tr>
-              </tfoot>
-            </table>
+
+          <!-- Resumo por Categoria -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+              <h2 class="text-sm font-semibold text-slate-300">Resumo por Categoria</h2>
+            </div>
+            <div class="border-b border-slate-800/50">
+              <div class="flex items-center justify-between px-5 py-2 bg-emerald-950/20 border-b border-emerald-900/20">
+                <span class="text-xs font-semibold uppercase tracking-wider text-emerald-500">Entradas</span>
+                <span class="num text-xs font-semibold text-emerald-400">${fmt(totalIn)}</span>
+              </div>
+              ${entradas.map(groupRow).join("") || '<p class="text-slate-500 text-sm py-4 text-center">Sem entradas no período</p>'}
+            </div>
+            <div>
+              <div class="flex items-center justify-between px-5 py-2 bg-rose-950/20 border-b border-rose-900/20">
+                <span class="text-xs font-semibold uppercase tracking-wider text-rose-500">Saídas</span>
+                <span class="num text-xs font-semibold text-rose-400">${fmt(totalOut)}</span>
+              </div>
+              ${saidas.map(groupRow).join("") || '<p class="text-slate-500 text-sm py-4 text-center">Sem saídas no período</p>'}
+            </div>
+            ${totalInt > 0 ? `
+            <div class="border-t border-slate-800/50">
+              <div class="flex items-center justify-between px-5 py-2 bg-purple-950/20 border-b border-purple-900/20">
+                <span class="text-xs font-semibold uppercase tracking-wider text-purple-400">Transferências Internas</span>
+                <span class="num text-xs font-semibold text-purple-400">${fmt(totalInt)}</span>
+              </div>
+              ${internas.map(groupRow).join("")}
+              <p class="text-[11px] text-slate-500 px-5 py-2 italic">Movimentos entre contas do grupo — não impactam o resultado</p>
+            </div>` : ""}
           </div>
         </div>`;
     }
